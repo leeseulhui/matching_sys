@@ -66,5 +66,5 @@ yarn-error.log
 /coverage
 Gpt/glove/
 
-.venv/
+.venv/lib
 Gpt/glove/

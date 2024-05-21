@@ -29,9 +29,6 @@ function handle_rebooted_user_data(jsonData){
     console.log("Invalid or empty jsonData:", jsonData);
   }
 }
-
-
-
   useEffect(()=>{
     // asyncstorage 에 저장되어 있는 데이터를 가져와서 리덕스에 저장해줘야함..
     // 불러오는 것 까지만 작성되어 있음.
@@ -69,7 +66,7 @@ const gotoMain=()=>{
 
   const handleInstagramLogin = () => {
     //인스타 회원가입 창으로 이동 => InstagramSignUp.js
-    navigation.navigate("인스타그램분석");
+    navigation.navigate("인스타로그인");
   };
   return (
     <ImageBackground

@@ -1,24 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
+import { baseURL, flaskUrl } from '../../../deviceSet';
+import { useSelector } from 'react-redux'; // 사용자 정보를 받아오기 위한 훅
 
 const DatingProfileResult = ({ route, navigation }) => {
-  const { userId } = route.params;  
+ // const { userId } = route.params;  사용자의 id를 동적으로 넘겨주려는 의도?
+  const userId = useSelector((state) => state.instaUserData.User_id);
   const [introduction, setIntroduction] = useState('');
   const [summary, setSummary] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const baseURL = 'http://localhost:6000';  
-
+  //const baseURL = 'http://localhost:6000';  나중에 구용이도 써야함. 
+ 
   useEffect(() => {
     const fetchIntroduction = async () => {
       const requestOptions = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })  
+        body: JSON.stringify( {userId: userId })  
       };
       console.log("Sending request to server with data:", requestOptions);
 
       try {
-        const response = await fetch(`${baseURL}/generate_introduction`, requestOptions);
+        const response = await fetch(`${flaskUrl}/generate_introduction`, requestOptions);
         const result = await response.json();
 
         console.log("Response received:", result);

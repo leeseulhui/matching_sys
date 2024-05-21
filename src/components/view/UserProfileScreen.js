@@ -15,11 +15,11 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { fullHeight, fullWidth,baseURL } from '../../deviceSet';
+import { fullHeight, fullWidth, baseURL } from '../../deviceSet';
 import { image } from '../../../assets/image';
 import { useDispatch,useSelector } from 'react-redux';
 import {update_user_profile_image} from '../../reduxContainer/action/signUpAction'
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function UserProfileScreen() {
   const navigation = useNavigation();
@@ -29,16 +29,17 @@ export default function UserProfileScreen() {
   const [profilePicUri, setProfilePicUri] = useState('');
   const [newGender, setNewGender] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
-  const user = useSelector((state)=>state.instaUserData);
-  console.log(user);
-  const baseURL = Platform.OS === 'ios' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';
+  const [changed, setChanged] = useState(false);// 리덕스에 프로필 이미지가 등록 되었나 확인하는 작업
+  const user = useSelector((state)=>state.instaUserData);// 유저데이터 확인
+  console.log(user);// 확인용 
   function handle_update_profileImage(url){
     dispatch(update_user_profile_image(url));
+    setChanged(true);
   } 
   useEffect(() => {
     async function fetchUserProfile() {
       try {
-        const response = await fetch(`${baseURL}/users/${user.User_id}`);
+        const response = await fetch(`${baseURL}:8080/users/${user.User_id}`);
         if (!response.ok) {
           throw new Error(`Server response not OK. Status: ${response.status}`);
         }
@@ -53,13 +54,16 @@ export default function UserProfileScreen() {
     }
     fetchUserProfile();
   }, []);
+  // userProfile이 바뀌었을 때만 실행하는 코드
   useEffect(()=>{
-    
+    if(changed==true){
+      AsyncStorage.setItem('userDatas',user)
+    }
   },[user])
 
   const handleUpdate = async () => {
     try {
-      const response = await fetch(`${baseURL}/usersupdate/${user.User_id}`, {
+      const response = await fetch(`${baseURL}:8080/usersupdate/${user.User_id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -97,10 +101,11 @@ export default function UserProfileScreen() {
           type: response.assets[0].type,
           uri: source,
         });
+        console.log(data);
         let checkface = false;
         //// 이부분이 얼굴 탐지가 되는지 안되는지 요청하는 코드
         try {
-          const response = await fetch('http://localhost:6000/detect-faces', {
+          const response = await fetch(`http://${baseURL}:6000//detect-faces`, {
             method: 'POST',
             body: data,
             headers: {
@@ -122,7 +127,7 @@ export default function UserProfileScreen() {
         if(checkface != false){
         data.append('userId', user.User_id);
         try {
-          const uploadResponse = await fetch(`${baseURL}/upload-profile-image`, {
+          const uploadResponse = await fetch(`${baseURL}:8080/upload-profile-image`, {
             method: 'POST',
             body: data,
             headers: {
@@ -133,12 +138,11 @@ export default function UserProfileScreen() {
             throw new Error(`Failed to upload image. Status: ${uploadResponse.status}`);
           }
           const uploadResult = await uploadResponse.json();
-          setProfilePicUri(uploadResult.imageUrl);
+          setProfilePicUri(uploadResult.imageUrl);//프로필 이미지 띄우는 창
           handle_update_profileImage(uploadResult.imageUrl);
           console.log('Image upload success:', uploadResult);
         } catch (error) {
-          console.error('Image upload error:', error);
-
+          console.error('Image upload error:', error);// 에러 메세지 확인
         }
         checkface = false;
       }
@@ -221,14 +225,12 @@ export default function UserProfileScreen() {
         <TouchableOpacity onPress={() => navigation.navigate("해시테스트")}>
           <View style={styles.etcDot}></View>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => console.log('난 몰라요')}>
-          <View style={styles.etcDot}></View>
-        </TouchableOpacity>
+        
       </View>
       <View style={{ width: fullWidth * 0.8, height: fullWidth * 0.2, backgroundColor: "#f0f8ff", borderRadius: 15, marginTop: 15, flexDirection: 'row', alignItems: "center", justifyContent: "space-around" }}>
 
         <TouchableOpacity style={styles.serviceList} >
-          <Image style={{ width: 40, height: 40, }} source={image.support} />
+          <Image style={{ width : 40, height: 40, }} source={image.support} />
           <Text>고객센터</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.serviceList} >

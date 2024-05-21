@@ -351,22 +351,19 @@ def get_matching_results():
         return jsonify({'error': f'Error fetching matching results: {e}'}), 500
     
 
-# 자기소개서 디자인 생성 
 @app.route('/generate_design', methods=['POST'])
 def generate_design_endpoint():
     data = request.get_json()
-    
-    # JSON 데이터에서 필요한 값 추출
+
     color = data.get('color')
     feature = data.get('feature')
-    #high quality of photographic output.
     image_type = data.get('type')
-    #1024x1024
     size = data.get('size')
 
     if color and feature and image_type and size:
         try:
-            # 체인 방식으로 프롬프트 생성
+            image_urls = []  # 이미지 URL을 저장할 리스트
+            openai.api_key = os.getenv("DALLE_API_KEY")
             prompt = (f"Create a concisely and visually appealing background image, primarily using the color {color} as the dominant hue. "
           f"The design should subtly reflect the mood '{feature}', ensuring that it enhances the atmosphere without being uncomfortable to the viewer. "
           f"Ensure the image upholds a '{image_type}' quality, perfectly fitting a size of {size}. "
@@ -376,26 +373,23 @@ def generate_design_endpoint():
           f"Adjust the transparency to allow background content for the dating introduction based on user data to be readable on the design. "
           f"Adjust the transparency to ensure that the background content for the dating introduction based on user data is clearly readable on the design. "
           f"Please create the design of the dating statement reflecting the conditions mentioned above, emphasizing the significant presence of the selected color.")
-            
-            
-            # DALL-E 3 모델을 사용하여 이미지 생성
-            openai.api_key = os.getenv("DALLE_API_KEY")
-            response = openai.Image.create(
-                model="dall-e-3",
-                prompt=prompt,
-                size=size,
-                quality="standard",
-                n=1  # 한 개의 이미지만 생성
-            )
-            
-            # 생성된 이미지의 URL 추출
-            image_url = response['data'][0]['url']
-            return jsonify({'image_url': image_url}), 200
+            # 두 개의 이미지 생성을 위한 반복문
+            for _ in range(2):  # 두 번의 독립적인 요청 수행
+                response = openai.Image.create(
+                    model="dall-e-3",
+                    prompt = prompt,
+                    size=size,
+                    quality="standard",
+                    n=1  # 각 요청에 대해 하나의 이미지만 생성
+                )
+                # 각 요청의 결과 이미지 URL을 리스트에 추가
+                image_urls.append(response['data'][0]['url'])
+
+            return jsonify({'image_urls': image_urls}), 200
         except Exception as e:
             return jsonify({'error': '디자인 생성 실패', 'message': str(e)}), 500
     else:
-        return jsonify({'error': '유효하지 않은 요청, 필수 요소가 누락되었습니다.'}), 400
-    
+        return jsonify({'error': '유효하지 않은 요청, 필수 요소가 누락되었습니다.'}), 400    
 # 인스타그램 피드 색감 추출
 color_descriptions = {
     "빨강": {"이미지": "Passion, Energy, Love, Danger, Urgency", "감정-상징": "Activity, Strength, Courage, Warning and Urgency"},

@@ -20,6 +20,9 @@ const ProfileSuccess = () => {
         🔽 원트님은 이런 디자인이 어울려요 🔽
         </Text>
         <View style={styles.placeholderBox} />
+        <View>
+          
+        </View>
       </ScrollView>
       <TouchableOpacity style={styles.button} onPress={handleMatching}>
         <Text style={styles.buttonText}>이상형 등록</Text>

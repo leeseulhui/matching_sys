@@ -1,3 +1,4 @@
+//인스타그램 피드를 가져오는 함수
 export const returnInstagramMedia = async (access_token) => {
   try {
       const url = `https://graph.instagram.com/me/media?fields=id,media_type,media_url,username&access_token=${access_token}`;

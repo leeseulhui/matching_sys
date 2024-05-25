@@ -67,18 +67,22 @@ def remove_low_connected_nodes(graph, threshold=0.1):
 def calculate_tag_similarity():
     data = request.get_json()
 
-    user1_tags = set(data.get('hashtags_user1', []))
-    user2_tags = set(data.get('hashtags_user2', []))
+    user1_tags = data.get('hashtags_user1', [])
+    user2_tags = data.get('hashtags_user2', [])
     user_id = data.get('userId', '')
 
     logging.info("Original User 1 Tags: %s", user1_tags)
     logging.info("Original User 2 Tags: %s", user2_tags)
 
+    # 원래 해시태그 저장
+    original_user1_tags = list(user1_tags)
+    original_user2_tags = list(user2_tags)
+
     translated_user1_tags = translate_words(user1_tags)
     translated_user2_tags = translate_words(user2_tags)
 
-    user1_tags.update(translated_user1_tags)
-    user2_tags.update(translated_user2_tags)
+    user1_tags = set(translated_user1_tags)
+    user2_tags = set(translated_user2_tags)
     
     G = nx.Graph()
     similarities = []
@@ -112,11 +116,22 @@ def calculate_tag_similarity():
 
     are_similar = average_similarity >= similarity_threshold
 
+    # Filter tags with similarity > 0.5
+    high_similarity_tags = {v for u, v, w in filtered_edges if w > 0.5}
+
+    # 번역 전 해시태그에서 유사도가 높은 2번 유저의 태그 찾기
+    original_high_similarity_tags_user2 = []
+    for original_tag, translated_tag in zip(original_user2_tags, translated_user2_tags):
+        if translated_tag in high_similarity_tags:
+            original_high_similarity_tags_user2.append(original_tag)
+
     return jsonify({
         'userId': user_id,
         'total_similarity': float(normalized_total_similarity),
         'average_similarity': float(average_similarity),
         'number_of_connections': int(edge_count),
         'are_similar': bool(are_similar),
-        'similarities': similarities  # Return the similarities list
+        'similarities': similarities,  # Return the similarities list
+        'high_similarity_tags': list(high_similarity_tags),  # Return high similarity tags
+        'original_high_similarity_tags_user2': original_high_similarity_tags_user2  # 원래 한국어 해시태그 중 유사도가 높은 태그
     })

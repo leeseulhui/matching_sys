@@ -206,7 +206,7 @@ def generate_introduction():
         }
 
         messages = [
-            {"role": "system", "content": "You are a sophisticated dating profile assistant tasked with creating engaging and attractive dating profiles."},
+            {"role": "system", "content": "You are a sophisticated dating profile assistant tasked with creating engaging and attractive dating profiles. Please ensure that the introduction is fluent, natural, and free of repetitive expressions."},
             {"role": "user", "content": f"Create a dating profile introduction for a user named {username} based on the following information."}
         ]
 
@@ -215,26 +215,32 @@ def generate_introduction():
             messages.append({"role": "system", "content": f"What is your favorite aspect of {category}? {question}"})
             messages.append({"role": "user", "content": answer})
 
-        messages.append({"role": "system", "content": "Create a concise and engaging dating profile introduction based on the provided information. Ensure the introduction is fluent and natural, and avoid repeating words."})
+        messages.append({"role": "system", "content": "Create a detailed, engaging, and attractive dating profile introduction based on the provided information. Ensure the introduction is fluent and natural, and avoid repeating words. Here's an example of a well-structured introduction:"})
+        messages.append({"role": "user", "content": f"""Example:
+
+안녕하세요 {username}이에요!
+저는 이성을 볼 때 저와 가치관이 얼마나 잘 맞는지와 유머러스한지를 봅니다! 외형적인 모습보다는 내면적인 모습을 더 집중적으로 봐요 👀
+저는 요리법을 가장 중요시 여기기 때문에, 야근이 잦은 일을 하시는 분들은 원치 않습니다.
+또한 가리는 음식 유형은 없지만 특히!! 한식을 좋아합니다. 그 중 순두부찌개를 가장 좋아하고 잘 만들어요! 그래서 같이 요리를 할 수 있는 분이면 더 좋을 것 같습니다 🍲
+여가시간에는 주로 평일에 일에 치여 읽지 못했던 읽고 싶었던 책을 읽거나, 운동을 하면서 스트레스를 풉니다. 운동은 러닝을 좋아하고 자주 하는 편이에요! 여행도 종종 가는 편입니다!
+저는 계획적이지 않기 때문에 계획적인 분이시라면 더 호감이 갈 것 같습니다.
+여행을 할 때 모든걸 즉흥적으로 하지는 않지만, 계획을 세세하게 짜 놓는 편은 아닙니다.
+
+이런 저와 비슷한 분이 계시다면 쪽지를 주세요! 대화를 통해 서로 더 알아가면 좋을 것 같습니다! 💪"""})
 
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
-            max_tokens=370,
+            max_tokens=350,
             temperature=0.7,
             n=1
         )
 
         generated_introduction = response.choices[0].message['content'].strip()
 
-        last_full_stop = generated_introduction.rfind('.')
-        if last_full_stop != -1:
-            generated_introduction = generated_introduction[:last_full_stop + 1]
-
-        paragraphs = re.split(r'(?<=[.?!])\s+', generated_introduction)
-        formatted_introduction = '\n\n'.join(paragraphs)
-
-        formatted_introduction = re.sub(r'\b(\w+)( \1\b)+', r'\1', formatted_introduction)
+        # Remove repetitive expressions and extra spaces
+        formatted_introduction = re.sub(r'\b(\w+)\b(?=\s+\1\b)', r'\1', generated_introduction)
+        formatted_introduction = re.sub(r'(\s*\b\w+\b\s*)\1+', r'\1', formatted_introduction)  # Remove adjacent duplicates
         formatted_introduction = re.sub(r'\s+', ' ', formatted_introduction).strip()
 
         summary_messages = [
@@ -273,6 +279,8 @@ def generate_introduction():
         traceback.print_exc()  # 추가된 오류 추적
         return jsonify({'error': f'자기소개서 생성 중 오류 발생: {e}'}), 500
 
+
+
 @app.route('/get_introduction_summary', methods=['POST'])
 def get_introduction_summary():
     data = request.get_json()
@@ -295,6 +303,7 @@ def get_introduction_summary():
     except Exception as e:
         app.logger.error(f"요약 생성 중 오류 발생: {e}")
         return jsonify({'error': f'요약 생성 중 오류 발생: {e}'}), 500
+
 
 
 
@@ -380,7 +389,8 @@ def generate_design_endpoint():
 
     if color and feature and image_type and size:
         try:
-            # 체인 방식으로 프롬프트 생성
+            image_urls = []  # 이미지 URL을 저장할 리스트
+            openai.api_key = os.getenv("DALLE_API_KEY")
             prompt = (f"Create a concisely and visually appealing background image, primarily using the color {color} as the dominant hue. "
           f"The design should subtly reflect the mood '{feature}', ensuring that it enhances the atmosphere without being uncomfortable to the viewer. "
           f"Ensure the image upholds a '{image_type}' quality, perfectly fitting a size of {size}. "
@@ -390,26 +400,23 @@ def generate_design_endpoint():
           f"Adjust the transparency to allow background content for the dating introduction based on user data to be readable on the design. "
           f"Adjust the transparency to ensure that the background content for the dating introduction based on user data is clearly readable on the design. "
           f"Please create the design of the dating statement reflecting the conditions mentioned above, emphasizing the significant presence of the selected color.")
-            
-            
-            # DALL-E 3 모델을 사용하여 이미지 생성
-            openai.api_key = os.getenv("DALLE_API_KEY")
-            response = openai.Image.create(
-                model="dall-e-3",
-                prompt=prompt,
-                size=size,
-                quality="standard",
-                n=1  # 한 개의 이미지만 생성
-            )
-            
-            # 생성된 이미지의 URL 추출
-            image_url = response['data'][0]['url']
-            return jsonify({'image_url': image_url}), 200
+            # 두 개의 이미지 생성을 위한 반복문
+            for _ in range(2):  # 두 번의 독립적인 요청 수행
+                response = openai.Image.create(
+                    model="dall-e-3",
+                    prompt = prompt,
+                    size=size,
+                    quality="standard",
+                    n=1  # 각 요청에 대해 하나의 이미지만 생성
+                )
+                # 각 요청의 결과 이미지 URL을 리스트에 추가
+                image_urls.append(response['data'][0]['url'])
+
+            return jsonify({'image_urls': image_urls}), 200
         except Exception as e:
             return jsonify({'error': '디자인 생성 실패', 'message': str(e)}), 500
     else:
-        return jsonify({'error': '유효하지 않은 요청, 필수 요소가 누락되었습니다.'}), 400
-    
+        return jsonify({'error': '유효하지 않은 요청, 필수 요소가 누락되었습니다.'}), 400    
 # 인스타그램 피드 색감 추출
 color_descriptions = {
     "빨강": {"이미지": "Passion, Energy, Love, Danger, Urgency", "감정-상징": "Activity, Strength, Courage, Warning and Urgency"},
@@ -519,7 +526,8 @@ def analyze_colors():
             "밝기": "N/A",
             "채도": "N/A",
         }
-
+    print (avg_color)
+    print(avg_mood)
     return jsonify({
         "color": avg_color,
         "mood": avg_mood

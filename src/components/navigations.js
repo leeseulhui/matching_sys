@@ -66,7 +66,6 @@ function MainTab() {
         tabBarStyle: {
           //하단바 색상
           backgroundColor: '#FEE3E5',
-          
         },
         headerShown:false, // 헤더 숨김
       })}
@@ -150,7 +149,7 @@ export default function StackContainer(){
         headerTintColor: 'white',
         headerStyle: { backgroundColor: 'tomato' },
       }}>
-        <Stack.Screen name="로그인" component={LoginScreen}/>
+        <Stack.Screen name="로그인" component={LoginScreen}/> 
         <Stack.Screen name="메인화면" component={DrawerMenu}/>
         <Stack.Screen name="프로필디자인" component={ProfileDesign}/>
         <Stack.Screen name="해시테스트" component={HashTest}/>
@@ -181,3 +180,4 @@ export default function StackContainer(){
     </NavigationContainer>
     );
 }
+// 로그인 - 인스타그램 분석 - 인스타그램 피드 -인스타그램 피드결과 - 데이팅테스트 - 데이팅 테스트 결과- 이상형 결과 - 메인화면

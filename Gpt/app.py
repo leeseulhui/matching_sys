@@ -10,7 +10,7 @@ from io import BytesIO
 import re 
 
 #이미지 캡션 라이브러리
-from azure_service import generate_caption
+from azure_service import generate_caption, extract_nouns
 
 #자기소개서 유사도분석 라이브러리
 from sentence_transformers import SentenceTransformer, util
@@ -609,15 +609,16 @@ def analyze_images_batch():
                 raise Exception(f"Invalid image at URL: {url} - {e}")
 
             caption = generate_caption(image_stream)
+            nouns = extract_nouns(caption)
             captions[url] = caption
 
-            # 캡션을 데이터베이스에 저장
+            # 캡션과 명사를 데이터베이스에 저장
             current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             insert_query = """
-            INSERT INTO image_captions (user_id, image_url, caption, similarity_score)
-            VALUES (%s, %s, %s, NULL)
+            INSERT INTO image_captions (user_id, image_url, caption, similarity_score, nouns)
+            VALUES (%s, %s, %s, NULL, %s)
             """
-            db_cursor.execute(insert_query, (user_id, url, caption))
+            db_cursor.execute(insert_query, (user_id, url, caption, nouns))
 
         db_connection.commit()
         return jsonify({"captions": captions})
@@ -630,7 +631,11 @@ def analyze_images_batch():
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
+
 app.register_blueprint(similarity_blueprint)
+
+
 
 @app.route('/detect-faces', methods=['POST'])
 def face_detection():

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
-import { baseURL, flaskUrl } from '../../../deviceSet';
+import { flaskUrl } from '../../../deviceSet'; //플라스크 요청 url
 import { useSelector } from 'react-redux'; // 사용자 정보를 받아오기 위한 훅
 
 const DatingProfileResult = ({ route, navigation }) => {
@@ -47,7 +47,7 @@ const DatingProfileResult = ({ route, navigation }) => {
     <View style={styles.container}>
       <Text style={styles.title}> 원트님의 데이트소개서에요!</Text>
       {isLoading ? (
-        <ActivityIndicator size="large" color="#FFC3A0" />
+        <ActivityIndicator size="large" color="#FFC3A0" style={styles.loadingIndicator} />
       ) : (
         <>
           <ScrollView style={styles.introductionContainer}>
@@ -128,7 +128,10 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold'
-  }
+  },
+  loadingIndicator: {
+    marginTop: 20,
+  },
 });
 
 export default DatingProfileResult;

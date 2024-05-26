@@ -1,10 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-
+import ProfileDesign from './ProfileDesign';
 const ProfileSuccess = () => {
   const navigation = useNavigation();
-
   const handleMatching = () => {
     navigation.navigate('이상형타입');
   };
@@ -19,9 +18,8 @@ const ProfileSuccess = () => {
         <Text style={styles.resultText}>
         🔽 원트님은 이런 디자인이 어울려요 🔽
         </Text>
-        <View style={styles.placeholderBox} />
-        <View>
-          
+        <View style={styles.placeholderBox} >
+        <ProfileDesign/>
         </View>
       </ScrollView>
       <TouchableOpacity style={styles.button} onPress={handleMatching}>

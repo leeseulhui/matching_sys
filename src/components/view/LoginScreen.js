@@ -1,3 +1,5 @@
+// 처음 시작하는 페이지
+
 import React, { useState, useContext, useEffect } from 'react';
 import { View, TextInput, Text, TouchableOpacity, StyleSheet, ImageBackground, Alert, Dimensions, Image, Platform} from 'react-native';
 import { AuthContext } from './AuthProvider';//로그인 상태 관리?
@@ -7,7 +9,7 @@ import {reboot_user_data} from '../../reduxContainer/action/signUpAction'
 import { image } from '../../../assets/image';// 에셋 저장 데이터
 import { useNavigation } from '@react-navigation/native'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// 처음 시작하는 페이지
+
 const LoginScreen = () => {
  //{ navigation, route } 기존 파라미터 
   const navigation = useNavigation();
@@ -29,6 +31,9 @@ function handle_rebooted_user_data(jsonData){
     console.log("Invalid or empty jsonData:", jsonData);
   }
 }
+
+
+
   useEffect(()=>{
     // asyncstorage 에 저장되어 있는 데이터를 가져와서 리덕스에 저장해줘야함..
     // 불러오는 것 까지만 작성되어 있음.

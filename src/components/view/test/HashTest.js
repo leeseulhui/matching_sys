@@ -3,9 +3,8 @@ import { View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator
 import { fetchInstagramPosts } from '../../fetchInstagramPosts';
 import HashTagCloud from './HashTagCloud';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { status_top,baseURL } from '../../../deviceSet';
+import { status_top, baseURL } from '../../../deviceSet';
 import { useNavigation } from '@react-navigation/native';
-
 
 const HashTest = () => {
   const navigation = useNavigation();
@@ -15,6 +14,7 @@ const HashTest = () => {
   const [error, setError] = useState(null);
   const [similarUsers, setSimilarUsers] = useState([]);
   const [userSimilarities, setUserSimilarities] = useState({});
+  const [highSimilarityTags, setHighSimilarityTags] = useState({});
 
   useEffect(() => {
     const initFunctions = async () => {
@@ -147,6 +147,10 @@ const HashTest = () => {
       }).then(res => res.json())
         .then(data => {
           saveSimilarityToDatabase(userId, user.id, data.total_similarity);
+          setHighSimilarityTags(prev => ({
+            ...prev,
+            [user.id]: data.original_high_similarity_tags_user2  // 원래 한국어 해시태그를 사용
+          }));
           return { userId: user.id, similarity: data.total_similarity };
         }).catch(error => {
           console.error(`Error fetching similarity for user ${user.id}:`, error);
@@ -205,7 +209,7 @@ const HashTest = () => {
               {similarUsers.map((user, index) => (
                 <View key={index} style={styles.userCard}>
                   <Text style={styles.userName}>{user.name}</Text>
-                  <HashTagCloud hashTags={user.hashtags} />
+                  <HashTagCloud hashTags={highSimilarityTags[user.id] || []} />
                   <Text style={styles.userSimilarity}>유사도: {userSimilarities[user.id] !== undefined ? `${(userSimilarities[user.id] * 100).toFixed(2)}%` : '계산 중...'}</Text>
                 </View>
               ))}
@@ -223,7 +227,7 @@ const HashTest = () => {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
-    paddingTop:status_top+ 20,
+    paddingTop: status_top + 20,
     backgroundColor: '#ffe4e1',
   },
   container: {

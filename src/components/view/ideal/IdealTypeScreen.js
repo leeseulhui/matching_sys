@@ -4,6 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import LinearGradient from 'react-native-linear-gradient';
 import axios from 'axios';
 import { image } from '../../../../assets/image';
+import { baseURL } from "../../../deviceSet";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const categories = [
   { key: 'age', name: '나이', options: ['연하', '연상', '동갑'] },
@@ -53,14 +55,24 @@ const IdealType = () => {
   const [selectedOptions, setSelectedOptions] = useState({});
   const [currentPage, setCurrentPage] = useState(0);
   const [username, setUsername] = useState("Loading...");
+  const [userId, setUserId] = useState(null);
 
   useEffect(() => {
-    const userId = '7506894859370827'; 
-    fetchUsername(userId);
+    const fetchUserData = async () => {
+      try {
+        const id = await AsyncStorage.getItem('user_id');
+        setUserId(id);
+        fetchUsername(id);
+      } catch (error) {
+        console.error('Failed to fetch user ID:', error);
+      }
+    };
+
+    fetchUserData();
   }, []);
 
-  const fetchUsername = async (userId) => {
-    const url = `http://localhost:8080/chatname/${userId}`;
+  const fetchUsername = async (id) => {
+    const url = `${baseURL}:8080/chatname/${id}`;
     console.log('Request URL:', url); // 요청 URL 확인
     try {
       const response = await axios.get(url);
@@ -99,11 +111,16 @@ const IdealType = () => {
 
   // 서버 연결 부분
   const saveIdealType = async (options) => {
+    if (!userId) {
+      console.error('User ID is not available');
+      return;
+    }
+
     console.log('Saving options:', options);
-    const url = 'http://localhost:8080/IdealTypes'; 
+    const url = `${baseURL}:8080/IdealTypes`; 
     try {
       const response = await axios.post(url, {
-        UserID: '7506894859370827', // 이 부분은 동적으로 변경 해야함
+        UserID: userId,
         ...options
       });
       console.log('Response from server:', response.data);

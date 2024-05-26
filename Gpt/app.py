@@ -45,7 +45,7 @@ nltk.download('wordnet')
 
 # 얼굴 인식
 from face_detection_check import detect_faces
-# 해쉬태그 분석
+# 해시태그 분석
 from hash_similarity import similarity_blueprint
 #연결 확인 부분(터미널에 뜨는 곳)
 app = Flask(__name__)
@@ -170,7 +170,6 @@ def generate_introduction():
         return jsonify({'error': 'Missing userId'}), 400
 
     try:
-        # Fetch user's username from the Users table
         user_query = "SELECT Username FROM Users WHERE User_id = %s"
         db_cursor.execute(user_query, (user_id,))
         user_result = db_cursor.fetchone()
@@ -178,88 +177,110 @@ def generate_introduction():
             return jsonify({'error': 'User not found'}), 404
         username = user_result[0]
 
-        # Fetch user responses from the database
-        response_query = "SELECT Category, Answer FROM UserResponses WHERE User_id = %s"
+        response_query = "SELECT Category, QuestionIndex, Answer FROM UserResponses WHERE User_id = %s"
         db_cursor.execute(response_query, (user_id,))
         responses = db_cursor.fetchall()
 
         if not responses:
             return jsonify({'error': 'No responses found for this user'}), 404
 
-        formatted_responses = [f"{resp[0]}: {resp[1]}" for resp in responses]
+        # 질문에 맞게 프롬프트 생성
+        question_map = {
+            "사랑": [
+                "What is the most important characteristic of an ideal partner?",
+                "In what situation do you feel the most attraction to your partner?"
+            ],
+            "일": [
+                "What do you think is the most important aspect of a job?"
+            ],
+            "식사": [
+                "What type of cuisine do you prefer?"
+            ],
+            "놀이": [
+                "What do you usually do in your free time?"
+            ],
+            "사고": [
+                "How do you prefer to solve everyday problems?",
+                "What is the most important value in your life?"
+            ]
+        }
 
         messages = [
-            {"role": "system", "content": "You are a sophisticated dating profile assistant tasked with creating engaging and attractive dating profiles."},
-            {"role": "user", "content": "Here are the responses about the user’s interests and what they value in a partner. Please prepare a dating profile introduction."},
-            {"role": "system", "content": "Great, let’s start. What’s the user’s name and what are some key characteristics you’d like to highlight?"},
-            {"role": "user", "content": f"{username} loves outdoor activities and values honesty and a good sense of humor in a partner."},
-            {"role": "system", "content": "Using the color {color} as the dominant hue, please create a design that reflects the mood '{feature}', while ensuring the text remains readable. The design should be peaceful and engaging, fitting the atmosphere of a dating profile."},
-            {"role": "user", "content": "Please make sure the text includes {username}'s love for nature and aligns with the color and mood specifications."},
-            {"role": "system", "content": "Understood. I’ll focus on creating a background that enhances the readability of the text, emphasizes {username}'s love for nature, and uses {color} effectively to set the right mood."},
-            {"role": "user", "content": "That sounds perfect. Please proceed."},
-            {"role": "system", "content": "Here is the draft introduction along with the background design. Does this meet your expectations?"}
+            {"role": "system", "content": "You are a sophisticated dating profile assistant tasked with creating engaging and attractive dating profiles. Please ensure that the introduction is fluent, natural, and free of repetitive expressions."},
+            {"role": "user", "content": f"Create a dating profile introduction for a user named {username} based on the following information."}
         ]
 
-        # Call the OpenAI API
+        for category, question_index, answer in responses:
+            question = question_map[category][question_index]
+            messages.append({"role": "system", "content": f"What is your favorite aspect of {category}? {question}"})
+            messages.append({"role": "user", "content": answer})
+
+        messages.append({"role": "system", "content": "Create a detailed, engaging, and attractive dating profile introduction based on the provided information. Ensure the introduction is fluent and natural, and avoid repeating words. Here's an example of a well-structured introduction:"})
+        messages.append({"role": "user", "content": f"""Example:
+
+안녕하세요 {username}이에요!
+저는 이성을 볼 때 저와 가치관이 얼마나 잘 맞는지와 유머러스한지를 봅니다! 외형적인 모습보다는 내면적인 모습을 더 집중적으로 봐요 👀
+저는 요리법을 가장 중요시 여기기 때문에, 야근이 잦은 일을 하시는 분들은 원치 않습니다.
+또한 가리는 음식 유형은 없지만 특히!! 한식을 좋아합니다. 그 중 순두부찌개를 가장 좋아하고 잘 만들어요! 그래서 같이 요리를 할 수 있는 분이면 더 좋을 것 같습니다 🍲
+여가시간에는 주로 평일에 일에 치여 읽지 못했던 읽고 싶었던 책을 읽거나, 운동을 하면서 스트레스를 풉니다. 운동은 러닝을 좋아하고 자주 하는 편이에요! 여행도 종종 가는 편입니다!
+저는 계획적이지 않기 때문에 계획적인 분이시라면 더 호감이 갈 것 같습니다.
+여행을 할 때 모든걸 즉흥적으로 하지는 않지만, 계획을 세세하게 짜 놓는 편은 아닙니다.
+
+이런 저와 비슷한 분이 계시다면 쪽지를 주세요! 대화를 통해 서로 더 알아가면 좋을 것 같습니다! 💪"""})
+
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
-            max_tokens=370,
+            max_tokens=350,
             temperature=0.7,
             n=1
         )
 
         generated_introduction = response.choices[0].message['content'].strip()
 
-        last_full_stop = generated_introduction.rfind('.')
-        if last_full_stop != -1:
-            generated_introduction = generated_introduction[:last_full_stop + 1]
+        # Remove repetitive expressions and extra spaces
+        formatted_introduction = re.sub(r'\b(\w+)\b(?=\s+\1\b)', r'\1', generated_introduction)
+        formatted_introduction = re.sub(r'(\s*\b\w+\b\s*)\1+', r'\1', formatted_introduction)  # Remove adjacent duplicates
+        formatted_introduction = re.sub(r'\s+', ' ', formatted_introduction).strip()
 
-        # Split the introduction into paragraphs
-        paragraphs = re.split(r'(?<=[.?!])\s+', generated_introduction)
-        formatted_introduction = '\n\n'.join(paragraphs)
-
-        # 요약 생성
         summary_messages = [
             {"role": "system", "content": "You are a sophisticated dating matching assistant. Your task is to extract key information from a user-provided introduction, emphasizing clear, concise language."},
-            {"role": "user", "content": f"Please summarize the following text, excluding personal introduction details, and present it in three clear and distinct paragraphs:\n\n{formatted_introduction}"}
+            {"role": "user", "content": f"Summarize the following text in one or two sentences:\n\n{formatted_introduction}"}
         ]
 
         summary_response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=summary_messages,
-            max_tokens=150,
+            max_tokens=100,
             temperature=0.7,
             n=1
         )
         summary = summary_response.choices[0].message['content'].strip()
 
-        # 요약이 중간에 끝나는 문제를 해결하기 위해 마지막 항목을 조정
-        summary_lines = summary.split('\n')
-        if summary_lines:
-            summary_lines[-1] = summary_lines[-1].rstrip('.').rstrip(' ').rstrip(',')
-            summary = '\n'.join(summary_lines)
+        translator = Translator()
+        translated_introduction = translator.translate(formatted_introduction, src='en', dest='ko').text
+        translated_summary = translator.translate(summary, src='en', dest='ko').text
 
-        # Save the introduction and summary to the database
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_intro_query = """
         INSERT INTO SelfIntroductions (User_id, Title, Content, CreationDate, LastModifiedDate, Summary)
         VALUES (%s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE Content = VALUES(Content), LastModifiedDate = VALUES(LastModifiedDate), Summary = VALUES(Summary)
         """
-        insert_intro_data = (user_id, '데이트 자기소개서', formatted_introduction, current_time, current_time, summary)
+        insert_intro_data = (user_id, '데이트 자기소개서', translated_introduction, current_time, current_time, translated_summary)
         db_cursor.execute(insert_intro_query, insert_intro_data)
 
         db_connection.commit()
 
-        return jsonify({'introduction': formatted_introduction, 'summary': summary}), 200
+        return jsonify({'introduction': translated_introduction, 'summary': translated_summary}), 200
     except Exception as e:
         db_connection.rollback()
         app.logger.error(f"자기소개서 생성 중 오류 발생: {e}")
-        return jsonify({'error': '자기소개서 생성 중 오류 발생'}), 500
+        traceback.print_exc()  # 추가된 오류 추적
+        return jsonify({'error': f'자기소개서 생성 중 오류 발생: {e}'}), 500
 
 
-#자기소개서 3줄 요약
+
 @app.route('/get_introduction_summary', methods=['POST'])
 def get_introduction_summary():
     data = request.get_json()
@@ -269,7 +290,7 @@ def get_introduction_summary():
         return jsonify({'error': 'Missing userId'}), 400
 
     try:
-        query = "SELECT Summary FROM SelfIntroductionSummaries WHERE User_id = %s"
+        query = "SELECT Summary FROM SelfIntroductions WHERE User_id = %s"
         db_cursor.execute(query, (user_id,))
         result = db_cursor.fetchone()
 
@@ -282,6 +303,8 @@ def get_introduction_summary():
     except Exception as e:
         app.logger.error(f"요약 생성 중 오류 발생: {e}")
         return jsonify({'error': f'요약 생성 중 오류 발생: {e}'}), 500
+
+
 
 
 #자기소개서 매칭
@@ -351,13 +374,17 @@ def get_matching_results():
         return jsonify({'error': f'Error fetching matching results: {e}'}), 500
     
 
+# 자기소개서 디자인 생성 
 @app.route('/generate_design', methods=['POST'])
 def generate_design_endpoint():
     data = request.get_json()
-
+    
+    # JSON 데이터에서 필요한 값 추출
     color = data.get('color')
     feature = data.get('feature')
+    #high quality of photographic output.
     image_type = data.get('type')
+    #1024x1024
     size = data.get('size')
 
     if color and feature and image_type and size:
@@ -499,7 +526,8 @@ def analyze_colors():
             "밝기": "N/A",
             "채도": "N/A",
         }
-
+    print (avg_color)
+    print(avg_mood)
     return jsonify({
         "color": avg_color,
         "mood": avg_mood
@@ -558,9 +586,13 @@ def analyze_images_batch():
                 logger.info(f"Skipping video URL: {url}")
                 continue
 
-            response = requests.get(url)
-            if response.status_code != 200:
-                raise Exception(f"Failed to fetch image from URL: {url}")
+            # 타임아웃 설정 및 예외 처리
+            try:
+                response = requests.get(url, timeout=10)  # 10초 타임아웃 설정
+                response.raise_for_status()  # HTTP 오류 상태 코드를 예외로 처리
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Failed to fetch image from URL: {url} - {e}")
+                continue
 
             image_stream = BytesIO(response.content)
 

@@ -37,8 +37,7 @@ import AzureResult from './view/AzureResult';
 import StartAnalysis from './view/StartAnalysis';
 import FeedResult from './view/FeedResult';
 import ProfileSuccess from './view/datingprofile/ProfileSuccess';
-import MatchingResults from './view/datingprofile/MatchingResult';
-
+import DatingProfileSimilarity from './view/datingprofile/DatingProfileSimilarity';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -173,9 +172,10 @@ export default function StackContainer(){
         <Stack.Screen name="캡션결과" component={AzureResult} />
         <Stack.Screen name="인스타그램분석" component={StartAnalysis} />
         <Stack.Screen name="자기소개서성공" component={ProfileSuccess} />
-        <Stack.Screen name="자기소개서매칭" component={MatchingResults} />
+        <Stack.Screen name="자기소개서매칭" component={DatingProfileSimilarity} />
         <Stack.Screen name="이상형분석" component={IdealTypeAnalysis} />
         <Stack.Screen name="얼굴분석" component={Similarity} />
+        
      </Stack.Navigator>
     </NavigationContainer>
     );

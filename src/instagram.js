@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, Button} from 'react-native';
 import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
-import { device_width,device_height, baseURL} from './deviceSet';
+import { device_width,device_height } from './deviceSet';
 import { useSelector, useDispatch } from "react-redux"; //redux 함수
 import {sign_up_action} from './reduxContainer/action/signUpAction'
 const AuthScreen = () => {
@@ -92,10 +92,10 @@ const handleSignUpData=(userId,accessToken)=>{
             } else if (data.access_token && data.user_id) {
               setAuthData(data);
               //id, 토큰 redux 저장 
-              //handleSignUpData(data.user_id,data.access_token);
-              // console.log('Access Token:', data.access_token);
-              // console.log('User ID:', data.user_id);
-              //saveAuthDataToServer(data.user_id, data.access_token);
+              handleSignUpData(data.user_id,data.access_token);
+              console.log('Access Token:', data.access_token);
+              console.log('User ID:', data.user_id);
+              saveAuthDataToServer(data.user_id, data.access_token);
               storeToken(data.access_token,data.user_id);
               navigation.navigate('회원정보입력');
             } else {

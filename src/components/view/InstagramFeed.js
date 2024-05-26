@@ -4,7 +4,7 @@ import { View, Text, Image, FlatList, TouchableOpacity, StyleSheet, Alert, Activ
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { fetchInstagramMedia } from '../fetchInstagramPosts';
-import { baseURL } from '../../deviceSet';
+import { baseURL, flaskUrl } from '../../deviceSet';
 import { useSelector } from 'react-redux';//리덕스의 저장된 상태를 꺼내는 훅
 
 const InstagramScreen = () => {
@@ -14,7 +14,7 @@ const InstagramScreen = () => {
   const [loading, setLoading] = useState(false);// 로딩 스테이트 
   const [loadingText, setLoadingText] = useState(''); //이거는 쓰는데가 없어 보이는데 
   //유저정보
-  const userId = useSelector((state)=> state.instaUserData.User_id);  
+  const userId = useSelector((state)=> state.instaUserData.User_id);
   const accessToken  = useSelector((state) => state.instaUserData.auth_token);
   useEffect(() => {
     const fetchData = async () => {
@@ -65,7 +65,7 @@ const InstagramScreen = () => {
   
     try {
       //색감 분석 코드 
-      const response = await fetch(`${baseURL}:6000/analyze_colors`, {
+      const response = await fetch(`${flaskUrl}/analyze_colors`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

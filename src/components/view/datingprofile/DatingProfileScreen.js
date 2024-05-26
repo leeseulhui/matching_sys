@@ -1,13 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Alert } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import axios from 'axios';
-import { useSelector } from 'react-redux';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-//분류 카테고리
 const categories = ['사랑', '일', '식사', '놀이', '사고'];
 
-// 이전 버튼, 다음버튼 완료 버튼 , 이것도 마지막에는 끝나고 로딩화면 나와야 될듯, 버튼 사용못하도록 막기
 const HeaderButtons = ({ onPrevious, onNext, isLastQuestion }) => {
   return (
     <View style={styles.buttonContainer}>
@@ -26,8 +24,17 @@ const DatingProfileScreen = ({ navigation }) => {
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedStyles, setSelectedStyles] = useState([]);
-  const userId = useSelector((state)=>state.instaUserData.User_id); // 내 현재 데이터
-  // 프롬프트 작성을 위한 질문지
+  const [userId, setUserId] = useState('');
+
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await AsyncStorage.getItem('user_id');
+      setUserId(id);
+    };
+
+    fetchUserId();
+  }, []);
+
   const questions = {
     사랑: [
       { question: "이상적인 연인의 가장 중요한 특성은 무엇인가요?", options: ["성격", "가치관", "생활 방식", "기타"] },
@@ -52,8 +59,7 @@ const DatingProfileScreen = ({ navigation }) => {
     ios: 'http://localhost:6000',
     android: 'http://10.0.2.2:6000'
   });
-//플라스크에서 디비 요청을 하는 코드
-// 연결실패시 500 반환, 
+
   const handleSaveResponse = async (dataToSend) => {
     const saveResponseUrl = `${baseURL}/save_response`;
     try {
@@ -73,48 +79,43 @@ const DatingProfileScreen = ({ navigation }) => {
       return false;
     }
   };
-  // 원트소개서 생성 함수 
+
   const handleGenerateIntroduction = async (dataToSend) => {
-    //원트소개서 엔드포인트 변수화
     const generateIntroUrl = `${baseURL}/generate_introduction`;
     try {
-      // 원트소개서 응답
       const generateIntroResponse = await axios.post(generateIntroUrl, dataToSend, {
         headers: {
           'Content-Type': 'application/json',
         },
       });
-      //생성 결과 출력 
       console.log('Generate introduction response:', generateIntroResponse);
       if (generateIntroResponse.status === 200) {
-        // 성공했을 시 스타일과 함께 유저id 전달
         navigation.navigate('데이팅테스트결과', {
           datingStyle: selectedStyles,
           userId: userId
         });
       } else {
-        //생성 실패
         throw new Error('Failed to generate introduction');
       }
     } catch (error) {
       console.error('Error generating introduction:', error);
-      Alert.alert('Error', 'Failed to generate introduction, please try again.');// 실패 알림
+      Alert.alert('Error', 'Failed to generate introduction, please try again.');
     }
   };
-  // 마지막 문항인데 모든 질문에 답하지 않았을 경우 실행되는 함수
+
   const handleSubmit = async () => {
     if (selectedStyles.length === 0) {
       Alert.alert('Error', 'Please answer all the questions.');
       return;
     }
-  //???? 왜
+
     const dataToSend = {
-      userId: userId ,
+      userId: userId,
       responses: selectedStyles
     };
 
     console.log('Sending data:', dataToSend);
-    //데이터 저장 함수 실행
+
     const saveSuccessful = await handleSaveResponse(dataToSend);
     if (saveSuccessful) {
       await handleGenerateIntroduction(dataToSend);
@@ -130,13 +131,13 @@ const DatingProfileScreen = ({ navigation }) => {
       Alert.alert('Error', 'Please select an option before proceeding.');
       return;
     }
-    //카테고리 번호따라서 번호, 선택항목 저장
+
     const newSelection = { 
       category: categories[currentCategoryIndex], 
       question_index: currentQuestionIndex, 
       answer 
     };
-    // 이것으로 갱신,  다음 버튼 누를때 마다 
+
     setSelectedStyles(prev => [...prev, newSelection]);
 
     if (currentQuestionIndex < questions[categories[currentCategoryIndex]].length - 1) {
@@ -149,7 +150,7 @@ const DatingProfileScreen = ({ navigation }) => {
     }
     setAnswer('');
   };
-//이전으로 갈때 누르는 함수
+
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
       setCurrentQuestionIndex(currentQuestionIndex - 1);

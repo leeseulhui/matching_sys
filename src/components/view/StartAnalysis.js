@@ -6,35 +6,31 @@ import axios from 'axios';
 import { fetchInstagramMedia } from '../fetchInstagramPosts';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import LinearGradient from 'react-native-linear-gradient';
-import { baseURL } from '../../deviceSet';
-import { useSelector } from 'react-redux';
+
 const StartAnalysis = () => {
-  const navigation = useNavigation();//네비게이션 훅
-  const [loading, setLoading] = useState(false); //로딩 스태이트 
+  const navigation = useNavigation();
+  const [loading, setLoading] = useState(false);
   const [loadingText, setLoadingText] = useState('');
-  //유저 정보  
-  const userId = useSelector((state)=>state.instaUserData.User_id);
-  const accessToken = useSelector((state)=>state.instaUserData.auth_token);
 
   const analyzeImages = async () => {
-    //const userId = await AsyncStorage.getItem('user_id');// 유저 아이디 가져오는거 이제 안됄듯 리덕스로 교체
-    //const accessToken = await AsyncStorage.getItem('userToken');//이것도 마찬가지
+    const userId = await AsyncStorage.getItem('user_id');
+    const accessToken = await AsyncStorage.getItem('userToken');
     if (!userId || !accessToken) {
       Alert.alert('Error', 'User ID or Instagram access token is not set.');
       return;
     }
-    // 대기 화면 시작
+
     setLoading(true);
 
     try {
-      const data = await fetchInstagramMedia(accessToken);//인스타 그램 게시물 가져오는 url
+      const data = await fetchInstagramMedia(accessToken);
       if (data && data.data) {
         const imageUrls = data.data.map(item => ({
           media_url: item.media_url.replace(/"/g, ""),
           media_type: item.media_type
         }));
         
-        const response = await axios.post(`${baseURL}:6000/api/analyze-batch`, { //어떤분석이지?
+        const response = await axios.post('http://localhost:6000/api/analyze-batch', {
           userId: userId,
           imageUrls: imageUrls
         }, {
@@ -42,7 +38,7 @@ const StartAnalysis = () => {
             'Content-Type': 'application/json',
           },
         });
-        //캡션데이터
+
         console.log('Captions received and saved:', response.data.captions);
         setLoadingText('첫 번째 분석이 완료되었어요! 좀 더 자세한 분석으로 넘어가볼까요?');
         

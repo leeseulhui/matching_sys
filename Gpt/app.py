@@ -720,6 +720,6 @@ def face_detection():
         except PermissionError as e:
             logging.error(f"Error deleting temporary file: {e}")
 
-
+app.register_blueprint(similarity_blueprint)
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6000, debug=True)

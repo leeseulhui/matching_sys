@@ -4,7 +4,7 @@ import { flaskUrl } from '../../../deviceSet'; //플라스크 요청 url
 import { useSelector } from 'react-redux'; // 사용자 정보를 받아오기 위한 훅
 
 const DatingProfileResult = ({ route, navigation }) => {
- // const { userId } = route.params;  사용자의 id를 동적으로 넘겨주려는 의도?
+  // const { userId } = route.params;  사용자의 id를 동적으로 넘겨주려는 의도?
   const userId = useSelector((state) => state.instaUserData.User_id);
   const [introduction, setIntroduction] = useState('');
   const [summary, setSummary] = useState('');

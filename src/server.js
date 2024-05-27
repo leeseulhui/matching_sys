@@ -1,8 +1,4 @@
-<<<<<<< HEAD
 require('dotenv').config();
-=======
-require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env'});
->>>>>>> 24b61e02b1d768c0a724528111604923d7210776
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
@@ -10,6 +6,7 @@ const WebSocket = require('ws');
 const AWS = require('aws-sdk');
 const fileUpload = require('express-fileupload');
 const helmet = require('helmet');
+const util = require('util');
 const { error } = require('console');
 
 const app = express();
@@ -318,7 +315,6 @@ app.get('/matchUsers', async (req, res) => {
   if (!userID) {
     return res.status(400).json({ error: 'UserID parameter is required' });
   }
-
   try {
     const query = `
       SELECT it.*, us.Username, us.User_profile_image 
@@ -492,10 +488,6 @@ app.post('/api/responses', (req, res) => {
 });
 
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 24b61e02b1d768c0a724528111604923d7210776
 //Mainscreen에서 비슷한 유저 띄우기
 app.get('/api/profiles/similar', async (req, res) => {
 
@@ -746,5 +738,64 @@ app.post('/api/store-similarity', async (req, res) => {
     console.error('Error storing similarity score:', err);
     res.status(500).json({ error: 'Error storing similarity score' });
   }
+});
+
+
+
+
+const query = util.promisify(connection.query).bind(connection);
+
+// 유사도 데이터를 가져오는 API 엔드포인트
+app.get('/similarity/:userId/:randomUserIds', async (req, res) => {
+  const { userId, randomUserIds } = req.params;
+  const userIds = randomUserIds.split(',');
+  const userIdsString = userIds.map(id => `'${id}'`).join(',');
+
+  console.log(`Request received for userId: ${userId} with randomUserIds: ${randomUserIds}`);
+
+  const queries = [
+    `SELECT similarity FROM DatingProfileSimilarity WHERE user_id_1 = ? AND user_id_2 IN (${userIdsString})`,
+    `SELECT similarity_score FROM UserCaptionSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
+    `SELECT similarity_score FROM UserFaceSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
+    `SELECT idealsimilarity_score FROM UserIdealSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
+    `SELECT similarity_score FROM UserSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`
+  ];
+
+  try {
+    const results = await Promise.all(queries.map(async (q) => {
+      console.log(`Executing query: ${q} with userId: ${userId}`);
+      const [result] = await connection.query(q, [userId]);
+      console.log(`Query result for query "${q}": ${JSON.stringify(result)}`);
+      return result;
+    }));
+    console.log('All queries successful with results:', JSON.stringify(results));
+    res.json({
+      datingProfileSimilarity: results[0].map(row => row.similarity),
+      userCaptionSimilarity: results[1].map(row => row.similarity_score),
+      userFaceSimilarity: results[2].map(row => row.similarity_score),
+      userIdealSimilarity: results[3].map(row => row.idealsimilarity_score),
+      userSimilarity: results[4].map(row => row.similarity_score)
+    });
+  } catch (err) {
+    console.error(`Promise failed with error: ${err}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+//매칭테이블 생성
+app.post('/match', (req, res) => {
+  const { user1ID, user2ID } = req.body;
+
+  if (!user1ID || !user2ID) {
+    return res.status(400).send('user1ID와 user2ID가 필요합니다.');
+  }
+
+  const query = `INSERT INTO Matching (User1ID, User2ID) VALUES (?, ?)`;
+  connection.query(query, [user1ID, user2ID], (err, result) => {
+    if (err) {
+      console.error('매칭 데이터베이스 삽입 오류:', err);
+      return res.status(500).send('매칭 오류가 발생했습니다.');
+    }
+    res.status(201).send({ message: '매칭 성공', matchingID: result.insertId });
+  });
 });
 server.listen(port, () => console.log(`Server is running on port ${port}`));

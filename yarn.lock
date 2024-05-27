@@ -2058,10 +2058,10 @@
     color "^4.2.3"
     warn-once "^0.1.0"
 
-"@shopify/react-native-skia@*", "@shopify/react-native-skia@^1.2.3", "@shopify/react-native-skia@>=0.1.190":
-  version "1.2.3"
-  resolved "https://registry.npmjs.org/@shopify/react-native-skia/-/react-native-skia-1.2.3.tgz"
-  integrity sha512-gyUD/HGsMyZ+YAoWxVh24HYN5juwC/dZWINL/0sKP7Ttee/0igCRxWPneH1BbVH28dhyf+tvksQNUwpMM3VWbg==
+"@shopify/react-native-skia@*", "@shopify/react-native-skia@^1.3.0", "@shopify/react-native-skia@>=0.1.190":
+  version "1.3.0"
+  resolved "https://registry.npmjs.org/@shopify/react-native-skia/-/react-native-skia-1.3.0.tgz"
+  integrity sha512-TsQM6e9Cb8V2dukFwdjVurpynb1Avw3mxl6DZCLqDugGaVOCoWIkcJWPQEW62uXN/qumJ0dFOCKaXudo+Y4Z4A==
   dependencies:
     canvaskit-wasm "0.39.1"
     react-reconciler "0.27.0"
@@ -4612,14 +4612,6 @@ fs.realpath@^1.0.0:
   resolved "https://registry.npmjs.org/fs.realpath/-/fs.realpath-1.0.0.tgz"
   integrity sha512-OO0pH2lK6a0hZnAdau5ItzHPI6pUlvI7jMVnxUQRtw4owF2wk8lOSabtGDCTP4Ggrg2MbGnWO9X8K1t4+fGMDw==
 
-<<<<<<< HEAD
-=======
-fsevents@^2.3.2, fsevents@~2.3.2:
-  version "2.3.3"
-  resolved "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz"
-  integrity sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==
-
->>>>>>> 24b61e02b1d768c0a724528111604923d7210776
 function-bind@^1.1.2:
   version "1.1.2"
   resolved "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz"

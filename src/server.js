@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 require('dotenv').config();
+=======
+require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env'});
+>>>>>>> 24b61e02b1d768c0a724528111604923d7210776
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
@@ -488,6 +492,10 @@ app.post('/api/responses', (req, res) => {
 });
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 24b61e02b1d768c0a724528111604923d7210776
 //Mainscreen에서 비슷한 유저 띄우기
 app.get('/api/profiles/similar', async (req, res) => {
 

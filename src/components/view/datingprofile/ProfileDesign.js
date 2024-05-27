@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { nodeUrl, flaskUrl } from '../../../deviceSet'; // 플라스크 서버, 노드서버 요청 URL
 import Slider from '@react-native-community/slider';
+import { useSelector } from 'react-redux';
 
 const ProfileDesign = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -9,30 +10,9 @@ const ProfileDesign = () => {
   const [responseData, setResponseData] = useState(null);
   const [opacity, setOpacity] = useState(1); // 투명도를 조절하기 위한 state
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
-  const userId = 7389320737824274; // 나중에 useSelector 훅으로 대체
+  const colorAnalysisResult = useSelector((state)=> state.colorAnalysisData);
+  const userId = colorAnalysisResult.User_id;
 
-  const fetchUserMood = async () => {
-    try {
-      const response = await fetch(`${nodeUrl}/insta/feed/color`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-      const data = await response.json();
-      console.log("사용자 분위기", data);
-      const color = rgbToHex(data[0].average_color);
-      const mood = data[0].mood_symbol;
-      console.log('색상코드', color);
-      setResponseData({
-        color: color,
-        feature: mood,
-        type: "high quality",
-        size: "1024x1024"
-      });
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-  };
 
   function rgbToHex(rgbString) {
     const [r, g, b] = rgbString.match(/\d+/g).map(Number);
@@ -43,7 +23,7 @@ const ProfileDesign = () => {
     return '#' + toHex(r) + toHex(g) + toHex(b);
   }
 
-  const fetchImages = async (color, mood) => {
+  const fetchImages = async (color, mood, type, size) => {
     console.log("이미지 생성 입력데이터 확인 색", color);
     console.log("이미지 생성 입력데이터 확인 분위기", mood);
     setIsLoading(true); // 로딩 시작
@@ -56,8 +36,8 @@ const ProfileDesign = () => {
         body: JSON.stringify({
           color: color,
           feature: mood,
-          type: "high quality",
-          size: "512x512"
+          type: type,
+          size: size
         })
       });
 
@@ -75,9 +55,22 @@ const ProfileDesign = () => {
     }
   };
 
-  useEffect(() => {
-    responseData == null ? fetchUserMood() : fetchImages(responseData.color, responseData.feature);
-  }, [responseData]);
+  useEffect(()=>{
+    if(responseData != null){
+      fetchImages(responseData.color, responseData.feature, responseData.type, responseData.size);
+    } else {
+      setResponseData({
+        color: rgbToHex(colorAnalysisResult.average_color),
+        feature: colorAnalysisResult.mood_symbol,
+        type: "high quality",
+        size: "1024x1024"
+      })
+    }
+  },[responseData])
+
+  // useEffect(() => {
+  //   responseData == null ? fetchUserMood() : fetchImages(responseData.color, responseData.feature);
+  // }, [responseData]);
 
   const renderSelectable = (url, index) => {
     return (

@@ -45,11 +45,11 @@ const DatingProfileResult = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}> 원트님의 데이트소개서에요!</Text>
       {isLoading ? (
         <ActivityIndicator size="large" color="#FFC3A0" style={styles.loadingIndicator} />
       ) : (
         <>
+          <Text style={styles.title}>원트님의 데이트소개서에요!</Text>
           <ScrollView style={styles.introductionContainer}>
             {introduction.split('\n\n').map((paragraph, index) => (
               <Text key={index} style={styles.content}>{paragraph}</Text>

@@ -90,13 +90,11 @@ const InstagramScreen = () => {
           imageUrls: selectedImages,
         }),
       });
-
       if (!response.ok) {
         const errorResponse = await response.text();
         console.error('Server response:', errorResponse);
         throw new Error('Server responded with an error: ' + response.status);
       }
-
       const jsonResponse = await response.json();
       navigation.navigate('인스타그램피드결과', { analysisResults: jsonResponse }); //결과물이 영어로 나옴
     } catch (error) {

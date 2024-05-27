@@ -958,6 +958,13 @@ PODS:
     - React
     - React-callinvoker
     - React-Core
+<<<<<<< HEAD
+=======
+  - react-native-slider (4.5.2):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
+>>>>>>> 24b61e02b1d768c0a724528111604923d7210776
   - react-native-webview (13.10.2):
     - glog
     - RCT-Folly (= 2022.05.16.00)
@@ -1219,6 +1226,10 @@ DEPENDENCIES:
   - react-native-image-picker (from `../node_modules/react-native-image-picker`)
   - react-native-safe-area-context (from `../node_modules/react-native-safe-area-context`)
   - "react-native-skia (from `../node_modules/@shopify/react-native-skia`)"
+<<<<<<< HEAD
+=======
+  - "react-native-slider (from `../node_modules/@react-native-community/slider`)"
+>>>>>>> 24b61e02b1d768c0a724528111604923d7210776
   - react-native-webview (from `../node_modules/react-native-webview`)
   - React-nativeconfig (from `../node_modules/react-native/ReactCommon`)
   - React-NativeModulesApple (from `../node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)
@@ -1331,6 +1342,11 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native-safe-area-context"
   react-native-skia:
     :path: "../node_modules/@shopify/react-native-skia"
+<<<<<<< HEAD
+=======
+  react-native-slider:
+    :path: "../node_modules/@react-native-community/slider"
+>>>>>>> 24b61e02b1d768c0a724528111604923d7210776
   react-native-webview:
     :path: "../node_modules/react-native-webview"
   React-nativeconfig:
@@ -1438,6 +1454,10 @@ SPEC CHECKSUMS:
   react-native-image-picker: d3db110a3ded6e48c93aef7e8e51afdde8b16ed0
   react-native-safe-area-context: dcab599c527c2d7de2d76507a523d20a0b83823d
   react-native-skia: 3ac80cc6de9c33e0a02b3a7b66c29dc6b6286211
+<<<<<<< HEAD
+=======
+  react-native-slider: 7a39874fc1fcdfee48e448fa72cce0a8f2c7c5d6
+>>>>>>> 24b61e02b1d768c0a724528111604923d7210776
   react-native-webview: c461fed0b58be5ee5180c3c3092a1d5dcb214a94
   React-nativeconfig: 2e44d0d2dd222b12a5183f4bcaa4a91881497acb
   React-NativeModulesApple: 8aa032fe6c92c1a3c63e4809d42816284a56a9b0

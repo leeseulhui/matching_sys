@@ -10,11 +10,10 @@ from io import BytesIO
 import re 
 
 #이미지 캡션 라이브러리
-from azure_service import generate_caption
+from azure_service import generate_caption, extract_nouns
 
 #자기소개서 유사도분석 라이브러리
 from sentence_transformers import SentenceTransformer, util
-
 
 #색감분석 라이브러리
 import colorsys 
@@ -305,8 +304,6 @@ def get_introduction_summary():
         return jsonify({'error': f'요약 생성 중 오류 발생: {e}'}), 500
 
 
-
-
 #자기소개서 매칭
 @app.route('/get_matching_results', methods=['POST'])
 def get_matching_results():
@@ -581,41 +578,40 @@ def analyze_images_batch():
             url = url_info['media_url']
             media_type = url_info.get('media_type', '')
 
-            # 비디오 파일은 무시
             if media_type == 'VIDEO':
                 logger.info(f"Skipping video URL: {url}")
                 continue
 
-            # 타임아웃 설정 및 예외 처리
             try:
-                response = requests.get(url, timeout=10)  # 10초 타임아웃 설정
-                response.raise_for_status()  # HTTP 오류 상태 코드를 예외로 처리
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to fetch image from URL: {url} - {e}")
                 continue
 
             image_stream = BytesIO(response.content)
 
-            # Verify the image stream by trying to open it with PIL
             try:
                 img = Image.open(image_stream)
-                img.verify()  # Will not return anything but will raise an exception if the image is not valid
-                image_stream.seek(0)  # Reset the stream position to the beginning
+                img.verify()
+                image_stream.seek(0)
             except Exception as e:
                 raise Exception(f"Invalid image at URL: {url} - {e}")
 
             caption = generate_caption(image_stream)
             captions[url] = caption
 
-            # 캡션을 데이터베이스에 저장
+            nouns = extract_nouns(caption)
+
             current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             insert_query = """
-            INSERT INTO image_captions (user_id, image_url, caption, similarity_score)
-            VALUES (%s, %s, %s, NULL)
+            INSERT INTO image_captions (user_id, image_url, caption, similarity_score, nouns)
+            VALUES (%s, %s, %s, NULL, %s)
             """
-            db_cursor.execute(insert_query, (user_id, url, caption))
+            db_cursor.execute(insert_query, (user_id, url, caption, nouns))
 
         db_connection.commit()
+        calculate_similarity_scores(user_id)
         return jsonify({"captions": captions})
     except Exception as error:
         db_connection.rollback()
@@ -623,26 +619,77 @@ def analyze_images_batch():
         traceback.print_exc()
         return jsonify({"error": "Failed to analyze images", "details": str(error)}), 500
 
+def calculate_similarity_scores(user_id):
+    if not db_connection:
+        logger.error('DB 연결 실패')
+        return
+
+    try:
+        db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (user_id,))
+        new_user_nouns_list = [row[0] for row in db_cursor.fetchall() if row[0]]
+
+        if not new_user_nouns_list:
+            logger.error('No nouns found for the user')
+            return
+
+        new_user_nouns = ' '.join(new_user_nouns_list)
+        new_user_embedding = model.encode(new_user_nouns, convert_to_tensor=True)
+
+        db_cursor.execute("SELECT DISTINCT user_id FROM image_captions WHERE user_id != %s ORDER BY RAND() LIMIT 5", (user_id,))
+        other_user_ids = [row[0] for row in db_cursor.fetchall()]
+
+        for other_user_id in other_user_ids:
+            db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (other_user_id,))
+            other_user_nouns_list = [row[0] for row in db_cursor.fetchall() if row[0]]
+
+            if not other_user_nouns_list:
+                continue
+
+            other_user_nouns = ' '.join(other_user_nouns_list)
+            other_user_embedding = model.encode(other_user_nouns, convert_to_tensor=True)
+
+            similarity = util.pytorch_cos_sim(new_user_embedding, other_user_embedding).item()
+
+            insert_similarity_query = """
+            INSERT INTO UserCaptionSimilarity (user_id1, user_id2, similarity_score)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE similarity_score = VALUES(similarity_score)
+            """
+            db_cursor.execute(insert_similarity_query, (user_id, other_user_id, similarity))
+
+        db_connection.commit()
+    except Exception as error:
+        db_connection.rollback()
+        logger.error(f"Error calculating similarity: {error}")
+        traceback.print_exc()
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-app.register_blueprint(similarity_blueprint)
 
 #얼굴 탐지 true/false 반환 엔드포인트
 @app.route('/detect-faces', methods=['POST'])
 def face_detection():
     if 'profileImage' not in request.files:
-        return jsonify({"result": False}), 400  # 파일이 없을 때 False 반환
+        logging.error("No file part in the request")
+        return jsonify({"result": False, "message": "No file provided."}), 400
 
     image_file = request.files['profileImage']
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-    image_file.save(temp_file.name)
+
+    if not image_file.content_type.startswith('image/'):
+        logging.error("File uploaded is not an image")
+        return jsonify({"result": False, "message": "File is not an image."}), 400
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
+        image_file.save(temp_file.name)
     
     try:
         result = detect_faces(temp_file.name)
-        return jsonify({"result": result}), 200  # 결과를 JSON으로 반환
+        return jsonify({"result": result}), 200
     finally:
-        os.unlink(temp_file.name)  # 임시 파일 삭제
+        try:
+            os.unlink(temp_file.name)
+        except PermissionError as e:
+            logging.error(f"Error deleting temporary file: {e}")
 
 
 

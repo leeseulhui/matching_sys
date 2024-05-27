@@ -11,6 +11,7 @@ const home_tabs = [
   { name: "Love", screenKey: "이상형 찾기", icon: icons.love },
   { name: "Hashtag", screenKey: "해시태그 분석", icon: icons.hashtag },
   { name: "Feed", screenKey: "인스타 피드 분석", icon: icons.insta },
+  { name: "Chat", screenKey: "채팅", icon: icons.chat }
 ];
 
 const datingTips = [
@@ -71,6 +72,9 @@ const MainScreen = () => {
         break;
       case 'Feed':
         navigation.navigate('인스타그램피드');
+        break;
+      case 'Chat':  
+      navigation.navigate('채팅', { matchingID: '7506894859370827' });  // Pass the matchingID here
         break;
       default:
         console.log('No screen associated');

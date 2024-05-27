@@ -33,7 +33,6 @@ import ResultLoading from './view/datingprofile/ResultLoading';
 import ChatStart from './view/chat/ChatStart';
 import DatingProfileResult from './view/datingprofile/DatingProfileResult';
 import Similarity from './view/Similarity';
-import AzureResult from './view/AzureResult';
 import StartAnalysis from './view/StartAnalysis';
 import FeedResult from './view/FeedResult';
 import ProfileSuccess from './view/datingprofile/ProfileSuccess';
@@ -169,7 +168,6 @@ export default function StackContainer(){
         <Stack.Screen name="채팅" component={ChatScreen} />
         <Stack.Screen name="차트" component={RadarChart} />
         <Stack.Screen name="디자인선택" component={ProfileDesign} />
-        <Stack.Screen name="캡션결과" component={AzureResult} />
         <Stack.Screen name="인스타그램분석" component={StartAnalysis} />
         <Stack.Screen name="자기소개서성공" component={ProfileSuccess} />
         <Stack.Screen name="자기소개서매칭" component={DatingProfileSimilarity} />

@@ -488,6 +488,7 @@ app.post('/api/responses', (req, res) => {
 });
 
 
+
 //Mainscreen에서 비슷한 유저 띄우기
 app.get('/api/profiles/similar', async (req, res) => {
 

@@ -12,31 +12,6 @@ const ProfileDesign = () => {
   const [selectedImageIndex, setSelectedImageIndex] = useState(null);
   const colorAnalysisResult = useSelector((state)=> state.colorAnalysisData);
   const userId = colorAnalysisResult.User_id;
-  //const userId = 7389320737824274; // 나중에 useSelector 훅으로 대체
-  // 리덕스에서 가져오면서 페치 필요 없도록 변경
-  const fetchUserMood = async () => {
-    try {
-      const response = await fetch(`${nodeUrl}/insta/feed/color`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId })
-      });
-      const data = await response.json();
-      console.log("사용자 분위기", data);
-      const color = rgbToHex(data[0].average_color);
-      const mood = data[0].mood_symbol;
-      console.log('색상코드', color);
-      // setResponseData({
-      //   color: color,
-      //   feature: mood,
-      //   type: "high quality",
-      //   size: "1024x1024"
-      // });
-    } catch (error) {
-      console.error('Error fetching data:', error);
-    }
-  };
-  
 
   function rgbToHex(rgbString) {
     const [r, g, b] = rgbString.match(/\d+/g).map(Number);

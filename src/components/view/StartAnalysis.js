@@ -30,7 +30,7 @@ const StartAnalysis = () => {
           media_type: item.media_type
         }));
         
-        const response = await axios.post('http://localhost:6000/api/analyze-batch', {
+        const response = await axios.post('http://10.0.2.2:6000/api/analyze-batch', {
           userId: userId,
           imageUrls: imageUrls
         }, {

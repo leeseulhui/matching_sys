@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { baseURL } from '../../deviceSet';
 import { useSelector } from 'react-redux';
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 
 const Similarity = () => {
   const route = useRoute();
+  const navigation = useNavigation();
   const { userId, randomUserIds } = route.params;
   const user = useSelector((state) => state.instaUserData);
   const profileImage1 = user.User_profile_image;
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [analysisDone, setAnalysisDone] = useState(false); // Flag to indicate if analysis is done
+  const [analysisDone, setAnalysisDone] = useState(false);
 
   useEffect(() => {
     const fetchUserProfilesAndAnalyze = async () => {
@@ -32,7 +33,7 @@ const Similarity = () => {
             testImage: data.User_profile_image,
           };
 
-          const analysisResponse = await fetch('http://localhost:6000/face-similarity', {
+          const analysisResponse = await fetch('http://10.0.2.2:6000/face-similarity', {
             method: 'POST',
             body: JSON.stringify(images),
             headers: {
@@ -49,7 +50,6 @@ const Similarity = () => {
               similarity_score: similarity_score,
             });
 
-            // Store the similarity score in the database
             await fetch(`${baseURL}:8080/api/store-similarity`, {
               method: 'POST',
               body: JSON.stringify({
@@ -66,7 +66,7 @@ const Similarity = () => {
           }
         }
         setResults(results);
-        setAnalysisDone(true); // Set the flag to true once the analysis is done
+        setAnalysisDone(true);
       } catch (error) {
         console.error('Error fetching user profiles or analyzing images:', error);
         Alert.alert('Error', '사용자 프로필 이미지를 가져오거나 분석하는 중에 실패했습니다.');
@@ -75,10 +75,10 @@ const Similarity = () => {
       }
     };
 
-    if (profileImage1 && !analysisDone) { // Check if analysis is not already done
+    if (profileImage1 && !analysisDone) {
       fetchUserProfilesAndAnalyze();
     }
-  }, [profileImage1, randomUserIds, analysisDone]); // Include analysisDone in dependencies
+  }, [profileImage1, randomUserIds, analysisDone]);
 
   return (
     <ScrollView style={styles.container}>
@@ -102,6 +102,12 @@ const Similarity = () => {
           </Text>
         </View>
       ))}
+      <TouchableOpacity
+        style={styles.matchButton}
+        onPress={() => navigation.navigate('캡션결과', { userId, randomUserIds })}
+      >
+        <Text style={styles.matchButtonText}>매칭상대 보러가기</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -148,6 +154,17 @@ const styles = StyleSheet.create({
     color: '#333',
     fontSize: 18,
     textAlign: 'center',
+  },
+  matchButton: {
+    backgroundColor: '#FF6C3D',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  matchButtonText: {
+    color: 'white',
+    fontSize: 18,
   },
 });
 

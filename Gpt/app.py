@@ -15,7 +15,6 @@ from azure_service import generate_caption, extract_nouns
 #자기소개서 유사도분석 라이브러리
 from sentence_transformers import SentenceTransformer, util
 
-
 #색감분석 라이브러리
 import colorsys 
 from colorthief import ColorThief
@@ -204,34 +203,52 @@ def generate_introduction():
                 "What is the most important value in your life?"
             ]
         }
-
         messages = [
-            {"role": "system", "content": "You are a sophisticated dating profile assistant tasked with creating engaging and attractive dating profiles. Please ensure that the introduction is fluent, natural, and free of repetitive expressions."},
-            {"role": "user", "content": f"Create a dating profile introduction for a user named {username} based on the following information."}
+            {
+                "role": "system",
+                "content": "You are an AI assistant with a talent for crafting engaging and attractive dating profiles. "
+                        "Your task is to work with users to create captivating and authentic profiles, highlighting their unique qualities and interests. "
+                        "Encourage users to share their personal stories and preferences, and build upon them to create a compelling and relatable dating introduction. "
+                        "Please ensure that the introduction is fluent, natural, and free of repetitive expressions. "
+                        "Avoid using the same words repeatedly. "
+                        "The introduction should be warm, personable, and suitable for a dating profile."
+            },
+            {
+                "role": "user",
+                "content": f"Create a dating profile introduction for a user named {username} based on the following information:"
+            }
         ]
+
 
         for category, question_index, answer in responses:
             question = question_map[category][question_index]
-            messages.append({"role": "system", "content": f"What is your favorite aspect of {category}? {question}"})
-            messages.append({"role": "user", "content": answer})
+        messages.append({"role": "user", "content": f"{question}: {answer}"})
 
-        messages.append({"role": "system", "content": "Create a detailed, engaging, and attractive dating profile introduction based on the provided information. Ensure the introduction is fluent and natural, and avoid repeating words. Here's an example of a well-structured introduction:"})
-        messages.append({"role": "user", "content": f"""Example:
+        messages.append({
+            "role": "system",
+            "content": """
+            Create a detailed, engaging, and attractive dating profile introduction based on the provided information. 
+            Ensure the introduction is fluent and natural, and avoid repeating words. 
+            The introduction should be inviting and relatable, with a clear flow and natural language. 
+            Divide the introduction into clear paragraphs for better readability. 
+            Here's an example of a well-structured introduction:
+                         
+            <Example>
+            저는 이성을 볼 때 저와 가치관이 얼마나 잘 맞는지와 유머러스한지를 봅니다! 
+            외형적인 모습보다는 내면적인 모습을 더 집중적으로 봐요 👀
+            저는 요리법을 가장 중요시 여기기 때문에, 야근이 잦은 일을 하시는 분들은 원치 않습니다.
+            또한 가리는 음식 유형은 없지만 특히!! 한식을 좋아합니다. 그 중 순두부찌개를 가장 좋아하고 잘 만들어요! 그래서 같이 요리를 할 수 있는 분이면 더 좋을 것 같습니다 🍲
+            여가시간에는 주로 평일에 일에 치여 읽지 못했던 읽고 싶었던 책을 읽거나, 운동을 하면서 스트레스를 풉니다. 운동은 러닝을 좋아하고 자주 하는 편이에요! 여행도 종종 가는 편입니다!
+            저는 계획적이지 않기 때문에 계획적인 분이시라면 더 호감이 갈 것 같습니다.
+            여행을 할 때 모든걸 즉흥적으로 하지는 않지만, 계획을 세세하게 짜 놓는 편은 아닙니다.
 
-안녕하세요 {username}이에요!
-저는 이성을 볼 때 저와 가치관이 얼마나 잘 맞는지와 유머러스한지를 봅니다! 외형적인 모습보다는 내면적인 모습을 더 집중적으로 봐요 👀
-저는 요리법을 가장 중요시 여기기 때문에, 야근이 잦은 일을 하시는 분들은 원치 않습니다.
-또한 가리는 음식 유형은 없지만 특히!! 한식을 좋아합니다. 그 중 순두부찌개를 가장 좋아하고 잘 만들어요! 그래서 같이 요리를 할 수 있는 분이면 더 좋을 것 같습니다 🍲
-여가시간에는 주로 평일에 일에 치여 읽지 못했던 읽고 싶었던 책을 읽거나, 운동을 하면서 스트레스를 풉니다. 운동은 러닝을 좋아하고 자주 하는 편이에요! 여행도 종종 가는 편입니다!
-저는 계획적이지 않기 때문에 계획적인 분이시라면 더 호감이 갈 것 같습니다.
-여행을 할 때 모든걸 즉흥적으로 하지는 않지만, 계획을 세세하게 짜 놓는 편은 아닙니다.
-
-이런 저와 비슷한 분이 계시다면 쪽지를 주세요! 대화를 통해 서로 더 알아가면 좋을 것 같습니다! 💪"""})
+            이런 저와 비슷한 분이 계시다면 쪽지를 주세요! 대화를 통해 서로 더 알아가면 좋을 것 같습니다! 💪
+            """})
 
         response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=messages,
-            max_tokens=350,
+            max_tokens=200,
             temperature=0.7,
             n=1
         )
@@ -243,10 +260,15 @@ def generate_introduction():
         formatted_introduction = re.sub(r'(\s*\b\w+\b\s*)\1+', r'\1', formatted_introduction)  # Remove adjacent duplicates
         formatted_introduction = re.sub(r'\s+', ' ', formatted_introduction).strip()
 
+        # Split into paragraphs for better readability
+        formatted_introduction = '\n\n'.join(re.split(r'(?<=\.) ', formatted_introduction))
+
         summary_messages = [
-            {"role": "system", "content": "You are a sophisticated dating matching assistant. Your task is to extract key information from a user-provided introduction, emphasizing clear, concise language."},
-            {"role": "user", "content": f"Summarize the following text in one or two sentences:\n\n{formatted_introduction}"}
-        ]
+        {"role": "system", "content": "You are a sophisticated dating matching assistant. Your task is to extract key information from a user-provided introduction, emphasizing clear, concise language."},
+        {"role": "system", "content": "Identify the main characteristics, hobbies, and preferences of the user."},
+        {"role": "system", "content": "Summarize the introduction into three clear and concise paragraphs, focusing on key details."},
+        {"role": "user", "content": f"Summarize the following text in three concise paragraphs, highlighting the key aspects:\n\n{formatted_introduction}"}
+    ]
 
         summary_response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -280,7 +302,6 @@ def generate_introduction():
         return jsonify({'error': f'자기소개서 생성 중 오류 발생: {e}'}), 500
 
 
-
 @app.route('/get_introduction_summary', methods=['POST'])
 def get_introduction_summary():
     data = request.get_json()
@@ -303,8 +324,6 @@ def get_introduction_summary():
     except Exception as e:
         app.logger.error(f"요약 생성 중 오류 발생: {e}")
         return jsonify({'error': f'요약 생성 중 오류 발생: {e}'}), 500
-
-
 
 
 #자기소개서 매칭
@@ -590,21 +609,19 @@ def analyze_images_batch():
                 logger.info(f"Skipping video URL: {url}")
                 continue
 
-            # 타임아웃 설정 및 예외 처리
             try:
-                response = requests.get(url, timeout=10)  # 10초 타임아웃 설정
-                response.raise_for_status()  # HTTP 오류 상태 코드를 예외로 처리
+                response = requests.get(url, timeout=10)
+                response.raise_for_status()
             except requests.exceptions.RequestException as e:
                 logger.error(f"Failed to fetch image from URL: {url} - {e}")
                 continue
 
             image_stream = BytesIO(response.content)
 
-            # Verify the image stream by trying to open it with PIL
             try:
                 img = Image.open(image_stream)
-                img.verify()  # Will not return anything but will raise an exception if the image is not valid
-                image_stream.seek(0)  # Reset the stream position to the beginning
+                img.verify()
+                image_stream.seek(0)
             except Exception as e:
                 raise Exception(f"Invalid image at URL: {url} - {e}")
 
@@ -612,7 +629,8 @@ def analyze_images_batch():
             nouns = extract_nouns(caption)
             captions[url] = caption
 
-            # 캡션과 명사를 데이터베이스에 저장
+            nouns = extract_nouns(caption)
+
             current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             insert_query = """
             INSERT INTO image_captions (user_id, image_url, caption, similarity_score, nouns)
@@ -621,6 +639,7 @@ def analyze_images_batch():
             db_cursor.execute(insert_query, (user_id, url, caption, nouns))
 
         db_connection.commit()
+        calculate_similarity_scores(user_id)
         return jsonify({"captions": captions})
     except Exception as error:
         db_connection.rollback()
@@ -628,15 +647,55 @@ def analyze_images_batch():
         traceback.print_exc()
         return jsonify({"error": "Failed to analyze images", "details": str(error)}), 500
 
+def calculate_similarity_scores(user_id):
+    if not db_connection:
+        logger.error('DB 연결 실패')
+        return
+
+    try:
+        db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (user_id,))
+        new_user_nouns_list = [row[0] for row in db_cursor.fetchall() if row[0]]
+
+        if not new_user_nouns_list:
+            logger.error('No nouns found for the user')
+            return
+
+        new_user_nouns = ' '.join(new_user_nouns_list)
+        new_user_embedding = model.encode(new_user_nouns, convert_to_tensor=True)
+
+        db_cursor.execute("SELECT DISTINCT user_id FROM image_captions WHERE user_id != %s ORDER BY RAND() LIMIT 5", (user_id,))
+        other_user_ids = [row[0] for row in db_cursor.fetchall()]
+
+        for other_user_id in other_user_ids:
+            db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (other_user_id,))
+            other_user_nouns_list = [row[0] for row in db_cursor.fetchall() if row[0]]
+
+            if not other_user_nouns_list:
+                continue
+
+            other_user_nouns = ' '.join(other_user_nouns_list)
+            other_user_embedding = model.encode(other_user_nouns, convert_to_tensor=True)
+
+
+            similarity = util.pytorch_cos_sim(new_user_embedding, other_user_embedding).item()      #cos 사용해서 캡션 명사 간의 유사도 계산
+
+            insert_similarity_query = """
+            INSERT INTO UserCaptionSimilarity (user_id1, user_id2, similarity_score)
+            VALUES (%s, %s, %s)
+            ON DUPLICATE KEY UPDATE similarity_score = VALUES(similarity_score)
+            """
+            db_cursor.execute(insert_similarity_query, (user_id, other_user_id, similarity))
+
+        db_connection.commit()
+    except Exception as error:
+        db_connection.rollback()
+        logger.error(f"Error calculating similarity: {error}")
+        traceback.print_exc()
+
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
-
-app.register_blueprint(similarity_blueprint)
-
-
-
+#얼굴 탐지 true/false 반환 엔드포인트
 @app.route('/detect-faces', methods=['POST'])
 def face_detection():
     if 'profileImage' not in request.files:
@@ -661,6 +720,6 @@ def face_detection():
         except PermissionError as e:
             logging.error(f"Error deleting temporary file: {e}")
 
-
+app.register_blueprint(similarity_blueprint)
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6000, debug=True)

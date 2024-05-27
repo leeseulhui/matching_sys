@@ -1,8 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, Dimensions, Text } from 'react-native';
 import { Skia, Canvas, Paint, Path, PaintStyle, Color } from "@shopify/react-native-skia";
+import { useRoute } from '@react-navigation/native';
 
 const RadarChart = () => {
+  const route = useRoute();
+  const { userId, randomUserIds } = route.params;
   const data = [0.5, 0.5, 0.7, 0.6, 0.8]; // 임의의 평가 값
   const labels = ["피드", "해시태그", "이상형", "얼굴", "소개서"]; // 범주 레이블
   const radius = 150; // 반지름 크기 설정
@@ -58,6 +61,8 @@ const RadarChart = () => {
 
   return (
     <View style={styles.container}>
+      <Text>User ID: {userId}</Text>
+      <Text>Random User ID: {randomUserIds}</Text>
       <Canvas style={styles.canvas}>
         <Path path={gridPath} paint={gridPaint} />
         <Path path={path} paint={paint} />
@@ -77,18 +82,19 @@ const RadarChart = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative'
+    position: 'relative',
+    padding: 20,
   },
   canvas: {
-    flex: 1
+    flex: 1,
   },
   label: {
     position: 'absolute',
     width: 40,
     height: 20,
     alignItems: 'center',
-    justifyContent: 'center'
-  }
+    justifyContent: 'center',
+  },
 });
 
 export default RadarChart;

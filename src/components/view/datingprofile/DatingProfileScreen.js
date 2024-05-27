@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Alert, TextInput } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,14 +7,19 @@ import { flaskUrl } from '../../../deviceSet';
 import { useSelector } from 'react-redux';
 const categories = ['사랑', '일', '식사', '놀이', '사고'];
 
-const HeaderButtons = ({ onPrevious, onNext, isLastQuestion }) => {
+const HeaderButtons = ({ onPrevious, onNext, isLastQuestion, onSkip }) => {
   return (
     <View style={styles.buttonContainer}>
-      <TouchableOpacity style={styles.button} onPress={onPrevious}>
-        <Text style={styles.buttonText}>이전</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={onNext}>
-        <Text style={styles.buttonText}>{isLastQuestion ? '완료' : '다음'}</Text>
+      <View style={styles.navButtonsContainer}>
+        <TouchableOpacity style={styles.button} onPress={onPrevious}>
+          <Text style={styles.buttonText}>이전</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={onNext}>
+          <Text style={styles.buttonText}>{isLastQuestion ? '완료' : '다음'}</Text>
+        </TouchableOpacity>
+      </View>
+      <TouchableOpacity style={styles.skipButton} onPress={onSkip}>
+        <Text style={styles.skipButtonText}>건너뛰기</Text>
       </TouchableOpacity>
     </View>
   );
@@ -22,6 +27,8 @@ const HeaderButtons = ({ onPrevious, onNext, isLastQuestion }) => {
 
 const DatingProfileScreen = ({ navigation }) => {
   const [answer, setAnswer] = useState('');
+  const [otherAnswer, setOtherAnswer] = useState('');
+  const [isOtherSelected, setIsOtherSelected] = useState(false);
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedStyles, setSelectedStyles] = useState([]);
@@ -110,19 +117,27 @@ const DatingProfileScreen = ({ navigation }) => {
   };
 
   const handleSelectOption = (option) => {
-    setAnswer(option);
+    if (option === '기타') {
+      setIsOtherSelected(true);
+      setAnswer('기타');
+    } else {
+      setIsOtherSelected(false);
+      setAnswer(option);
+    }
   };
 
   const handleNext = () => {
-    if (!answer) {
-      Alert.alert('Error', 'Please select an option before proceeding.');
+    const finalAnswer = answer === '기타' ? otherAnswer : answer;
+
+    if (answer === '기타' && !finalAnswer.trim()) {
+      Alert.alert('Error', 'Please enter your answer.');
       return;
     }
 
     const newSelection = { 
       category: categories[currentCategoryIndex], 
       question_index: currentQuestionIndex, 
-      answer 
+      answer: finalAnswer 
     };
 
     setSelectedStyles(prev => [...prev, newSelection]);
@@ -136,6 +151,23 @@ const DatingProfileScreen = ({ navigation }) => {
       handleSubmit();
     }
     setAnswer('');
+    setOtherAnswer('');
+  };
+
+
+  const handleSkip = () => {
+    setAnswer('');
+    setOtherAnswer('');
+    setIsOtherSelected(false);
+
+    if (currentQuestionIndex < questions[categories[currentCategoryIndex]].length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else if (currentCategoryIndex < categories.length - 1) {
+      setCurrentCategoryIndex(currentCategoryIndex + 1);
+      setCurrentQuestionIndex(0);
+    } else {
+      handleSubmit();
+    }
   };
 
   const handlePrevious = () => {
@@ -146,6 +178,7 @@ const DatingProfileScreen = ({ navigation }) => {
       setCurrentQuestionIndex(questions[categories[currentCategoryIndex - 1]].length - 1);
     }
     setAnswer('');
+    setOtherAnswer('');
   };
 
   return (
@@ -169,9 +202,18 @@ const DatingProfileScreen = ({ navigation }) => {
             <Text style={[styles.optionText, answer === option ? styles.optionTextSelected : styles.optionTextUnselected]}>{option}</Text>
           </TouchableOpacity>
         ))}
+        {isOtherSelected && (
+          <TextInput
+            style={styles.otherInput}
+            placeholder="기타 내용을 입력하세요"
+            value={otherAnswer}
+            onChangeText={setOtherAnswer}
+          />
+        )}
         <HeaderButtons
           onPrevious={handlePrevious}
           onNext={handleNext}
+          onSkip={handleSkip}
           isLastQuestion={currentCategoryIndex === categories.length - 1 && currentQuestionIndex === questions[categories[currentCategoryIndex]].length - 1}
         />
       </ScrollView>
@@ -223,21 +265,43 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   buttonContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  navButtonsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-evenly',
-    marginTop: 50,
+    justifyContent: 'space-between',
+    width: '100%',
   },
   button: {
     backgroundColor: 'transparent',
     padding: 20,
     borderRadius: 5,
-    width: '50%',
+    width: '40%',
   },
   buttonText: {
     color: '#000000',
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  skipButton: {
+    backgroundColor: 'transparent',
+    padding: 10,
+    borderRadius: 5,
+    marginTop: 20,
+  },
+  skipButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  otherInput: {
+    borderWidth: 1,
+    borderColor: 'gray',
+    borderRadius: 5,
+    padding: 10,
+    marginTop: 10,
   },
 });
 

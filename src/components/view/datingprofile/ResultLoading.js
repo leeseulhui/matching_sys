@@ -7,7 +7,7 @@ const ResultLoading = () => {
     <View style={styles.container}>
       <View style={styles.content}>
         <ActivityIndicator size="large" color="#FF6F91" />
-        <Text style={styles.text}>원트소개서를 생성 중입니다! 잠시만 기다려주세요 ♥︎</Text>
+        <Text style={styles.text}>원트소개서를 생성 중입니다! 잠시만 기다려주세요 </Text>
       </View>
     </View>
   );

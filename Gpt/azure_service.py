@@ -2,13 +2,11 @@ from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from msrest.authentication import CognitiveServicesCredentials
 import io
 import nltk
-from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.tag import pos_tag
 
 nltk.download('punkt')
 nltk.download('averaged_perceptron_tagger')
-nltk.download('stopwords')
 
 # Azure Computer Vision API 키와 엔드포인트
 subscription_key = "cbb9ab87fdb0448cb288737da13a1d32"

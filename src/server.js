@@ -740,4 +740,11 @@ app.post('/api/store-similarity', async (req, res) => {
     res.status(500).json({ error: 'Error storing similarity score' });
   }
 });
+//사용자의 데이팅 소개서 내용을 가져오는 엔드포인트
+// app.post('/getUserContent', async(req, res)=>{
+//   const {userId} =req.body;
+//   const
+// })
+
+
 server.listen(port, () => console.log(`Server is running on port ${port}`));

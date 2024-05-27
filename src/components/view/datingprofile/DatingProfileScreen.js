@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Platform, Alert }
 import LinearGradient from 'react-native-linear-gradient';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import { flaskUrl } from '../../../deviceSet';
+import { useSelector } from 'react-redux';
 const categories = ['사랑', '일', '식사', '놀이', '사고'];
 
 const HeaderButtons = ({ onPrevious, onNext, isLastQuestion }) => {
@@ -24,16 +25,7 @@ const DatingProfileScreen = ({ navigation }) => {
   const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedStyles, setSelectedStyles] = useState([]);
-  const [userId, setUserId] = useState('');
-
-  useEffect(() => {
-    const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('user_id');
-      setUserId(id);
-    };
-
-    fetchUserId();
-  }, []);
+  const userId = useSelector((state) => state.instaUserData.User_id);
 
   const questions = {
     사랑: [
@@ -55,13 +47,8 @@ const DatingProfileScreen = ({ navigation }) => {
     ]
   };
 
-  const baseURL = Platform.select({
-    ios: 'http://localhost:6000',
-    android: 'http://10.0.2.2:6000'
-  });
-
   const handleSaveResponse = async (dataToSend) => {
-    const saveResponseUrl = `${baseURL}/save_response`;
+    const saveResponseUrl = `${flaskUrl}/save_response`;
     try {
       const saveResponse = await axios.post(saveResponseUrl, dataToSend, {
         headers: {
@@ -81,7 +68,7 @@ const DatingProfileScreen = ({ navigation }) => {
   };
 
   const handleGenerateIntroduction = async (dataToSend) => {
-    const generateIntroUrl = `${baseURL}/generate_introduction`;
+    const generateIntroUrl = `${flaskUrl}/generate_introduction`;
     try {
       const generateIntroResponse = await axios.post(generateIntroUrl, dataToSend, {
         headers: {

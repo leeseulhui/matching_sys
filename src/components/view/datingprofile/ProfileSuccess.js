@@ -1,12 +1,15 @@
-import React from 'react';
+import React,{useState} from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import ProfileDesign from './ProfileDesign';
+
 const ProfileSuccess = () => {
   const navigation = useNavigation();
   const handleMatching = () => {
     navigation.navigate('이상형타입');
   };
+  
+
 
   return (
     <View style={styles.container}>
@@ -62,7 +65,7 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   placeholderBox: {
-    height: 200,  
+    
     backgroundColor: '#FFF',
     borderColor: '#DDD',
     borderWidth: 1,

@@ -38,6 +38,7 @@ import StartAnalysis from './view/StartAnalysis';
 import FeedResult from './view/FeedResult';
 import ProfileSuccess from './view/datingprofile/ProfileSuccess';
 import DatingProfileSimilarity from './view/datingprofile/DatingProfileSimilarity';
+import PerfectProfile from './view/datingprofile/PerfectProfile';
 
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
@@ -175,6 +176,8 @@ export default function StackContainer(){
         <Stack.Screen name="자기소개서매칭" component={DatingProfileSimilarity} />
         <Stack.Screen name="이상형분석" component={IdealTypeAnalysis} />
         <Stack.Screen name="얼굴분석" component={Similarity} />
+        <Stack.Screen name="소개서완성본" component={PerfectProfile} />
+
         
      </Stack.Navigator>
     </NavigationContainer>

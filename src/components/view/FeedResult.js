@@ -1,12 +1,32 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { useDispatch, useSelector } from 'react-redux';
+import { add_color_analysis } from '../../reduxContainer/action/colorAnalysisData';
 
 const FeedResult = () => {
-  const route = useRoute();
-  const { analysisResults = {}, userId } = route.params || { analysisResults: {}, userId: null };
-  const navigation = useNavigation();
+  const route = useRoute(); //params 받기
+  const userId = useSelector((state)=> state.instaUserData.User_id);
+  const colorData = useSelector((state)=> state.colorAnalysisData);
+  console.log(colorData);
+  const dispatch = useDispatch();
+  // 파람즈 받을거면 아마도 앞에서 userId까지 받아와야 하지 않을까?
+  const { analysisResults = {}} = route.params || { analysisResults: {}};
+  const navigation = useNavigation();//네비게이션 훅
+  const handleColorData=(id, rgb, mood, symbol)=>{
+    dispatch(add_color_analysis(id, rgb, mood, symbol));
+  }
+  console.log(analysisResults);
 
+  useEffect(()=>{
+    if (userId!= undefined &&analysisResults != {}){
+      const rgb = `rgb(${analysisResults.color[0]}, ${analysisResults.color[1]}, ${analysisResults.color[2]})`;
+      const symbol = analysisResults.mood.이미지;
+      const mood =  analysisResults.mood["감정-상징"];
+      handleColorData(userId, rgb, symbol, mood);
+    }
+  },[])
+  // 사용자의 주요 색상을 나타내는 박스
   const renderColorBlock = (color) => {
     if (!color) return null;
     const backgroundColor = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;

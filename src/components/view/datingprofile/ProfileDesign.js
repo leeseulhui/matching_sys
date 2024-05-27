@@ -1,40 +1,43 @@
-//원트소개서 디자인 검색하는 부분(검색창에 분석한 피드 분위기 결과값 들어가주어야 함)
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image} from 'react-native';
-import { nodeUrl, flaskUrl} from '../../../deviceSet';//플라스크 서버, 노드서버 요청 url
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { nodeUrl, flaskUrl } from '../../../deviceSet'; // 플라스크 서버, 노드서버 요청 URL
+import Slider from '@react-native-community/slider';
 import { useSelector } from 'react-redux';
 
 const ProfileDesign = () => {
-  //const [searchTerm, setSearchTerm] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [imageUrls, setImageUrls] = useState([]); // 이미지 URL을 저장할 상태
   const [responseData, setResponseData] = useState(null);
-  //  사용자  id를 가져오는 훅
-  //const userId = useSelector((state) => state.instaUserData.User_id);
-  const userId = 7389320737824274;// 나중에 위의 코드랑 교체.
-  // db에서 사용자의 주 색상 과 사용자의 분위기를 가져오는 함수 
-  const fetchUserMood = async ()=>{
-    try{
-      const response =await fetch(`${nodeUrl}/insta/feed/color`,{
+  const [opacity, setOpacity] = useState(1); // 투명도를 조절하기 위한 state
+  const [selectedImageIndex, setSelectedImageIndex] = useState(null);
+  const colorAnalysisResult = useSelector((state)=> state.colorAnalysisData);
+  const userId = colorAnalysisResult.User_id;
+  //const userId = 7389320737824274; // 나중에 useSelector 훅으로 대체
+  // 리덕스에서 가져오면서 페치 필요 없도록 변경
+  const fetchUserMood = async () => {
+    try {
+      const response = await fetch(`${nodeUrl}/insta/feed/color`, {
         method: 'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({userId})
-      })
-      const data= await response.json();
-      console.log("사용자 분위기",data);
-      const color = rgbToHex(data[0].average_color);
-      const mood = data[0].mood_symbol
-      console.log('색상코드',color);
-      setResponseData({
-        color: color, // 예시 색상 코드
-        feature: mood, // 예시 기분
-        type: "high quality", // 예시 품질 유형
-        size: "1024x1024" // 예시 크기
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId })
       });
+      const data = await response.json();
+      console.log("사용자 분위기", data);
+      const color = rgbToHex(data[0].average_color);
+      const mood = data[0].mood_symbol;
+      console.log('색상코드', color);
+      // setResponseData({
+      //   color: color,
+      //   feature: mood,
+      //   type: "high quality",
+      //   size: "1024x1024"
+      // });
     } catch (error) {
       console.error('Error fetching data:', error);
     }
-  }
+  };
+  
+
   function rgbToHex(rgbString) {
     const [r, g, b] = rgbString.match(/\d+/g).map(Number);
     const toHex = c => {
@@ -44,10 +47,7 @@ const ProfileDesign = () => {
     return '#' + toHex(r) + toHex(g) + toHex(b);
   }
 
-  
-
-  // 이미지를 서버에서 가져오는 함수
-  const fetchImages = async (color, mood) => {
+  const fetchImages = async (color, mood, type, size) => {
     console.log("이미지 생성 입력데이터 확인 색", color);
     console.log("이미지 생성 입력데이터 확인 분위기", mood);
     setIsLoading(true); // 로딩 시작
@@ -58,10 +58,10 @@ const ProfileDesign = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          color: color, // 예시 색상 코드
-          feature: mood, // 예시 기분
-          type: "high quality", // 예시 품질 유형
-          size: "1024x1024" // 예시 크기
+          color: color,
+          feature: mood,
+          type: type,
+          size: size
         })
       });
 
@@ -70,7 +70,7 @@ const ProfileDesign = () => {
       }
 
       const data = await response.json(); // 서버 응답에서 JSON 데이터 파싱
-      console.log('uri 확인',data);
+      console.log('uri 확인', data);
       setImageUrls(data.image_urls); // 상태 업데이트
     } catch (error) {
       console.error('Failed to fetch images:', error);
@@ -79,10 +79,30 @@ const ProfileDesign = () => {
     }
   };
 
-  // 컴포넌트 마운트 시 이미지를 자동으로 가져오도록 설정
-  useEffect(() => {
-    responseData ==null? fetchUserMood():fetchImages(responseData.color, responseData.feature);
-  }, [responseData]);
+  useEffect(()=>{
+    if(responseData != null){
+      fetchImages(responseData.color, responseData.feature, responseData.type, responseData.size);
+    } else {
+      setResponseData({
+        color: rgbToHex(colorAnalysisResult.average_color),
+        feature: colorAnalysisResult.mood_symbol,
+        type: "high quality",
+        size: "1024x1024"
+      })
+    }
+  },[responseData])
+
+  // useEffect(() => {
+  //   responseData == null ? fetchUserMood() : fetchImages(responseData.color, responseData.feature);
+  // }, [responseData]);
+
+  const renderSelectable = (url, index) => {
+    return (
+      <TouchableOpacity key={index} onPress={() => setSelectedImageIndex(index)}>
+        <Image source={{ uri: url }} style={[styles.image, { opacity: selectedImageIndex === index ? opacity : 1 }]} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -90,13 +110,33 @@ const ProfileDesign = () => {
         <Text>Loading...</Text>
       ) : (
         <View style={styles.resultsContainer}>
-          <View style={{flexDirection:"row", justifyContent:"space-around"}}>
-          {imageUrls.map((url, index)=>{
-            console.log(url);
-            return (
-            <Image key={index} source ={{uri: url}} style={{width:150, height:200}}/>)})
-          }
+          <View style={{ flexDirection: "row", justifyContent: "space-around" }}>
+            {imageUrls.map((url, index) => {
+              console.log(url);
+              return renderSelectable(url, index);
+            })}
           </View>
+          {selectedImageIndex !== null && (
+            <View style={styles.selectedContainer}>
+              <Image
+                source={{ uri: imageUrls[selectedImageIndex] }}
+                style={[styles.selectedImage, { opacity: opacity }]}
+              />
+              <View style={styles.sliderContainer}>
+                <Text>투명도 조절</Text>
+                <Slider
+                  style={{ width: 200, height: 40 }}
+                  minimumValue={0}
+                  maximumValue={1}
+                  minimumTrackTintColor="#FFA07A"
+                  maximumTrackTintColor="#000000"
+                  thumbTintColor="#FFA07A"
+                  value={opacity}
+                  onValueChange={setOpacity}
+                />
+              </View>
+            </View>
+          )}
         </View>
       )}
     </View>
@@ -107,39 +147,25 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    //backgroundColor: '#FFF1E6',
-  },
-  header: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FF715B', 
-    marginTop : 50,
-    marginBottom: 20,
-  },
-  searchContainer: {
-    marginBottom: 20,
-  },
-  searchInput: {
-    height: 40,
-    borderColor: '#FFC0CB', 
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    color: '#333', 
-    backgroundColor: '#FFF', 
   },
   resultsContainer: {
     marginTop: 10,
   },
-  resultItem: {
-    padding: 10,
-    backgroundColor: '#FFDEEC', 
-    borderRadius: 8,
-    marginBottom: 10,
+  image: {
+    width: 150,
+    height: 200,
   },
-  resultText: {
-    color: '#FF715B', 
-    fontSize: 16,
+  selectedContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  selectedImage: {
+    width: 250,
+    height: 350,
+    marginBottom: 20,
+  },
+  sliderContainer: {
+    alignItems: 'center',
   },
 });
 

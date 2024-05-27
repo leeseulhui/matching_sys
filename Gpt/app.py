@@ -10,7 +10,7 @@ from io import BytesIO
 import re 
 
 #이미지 캡션 라이브러리
-from azure_service import generate_caption
+from azure_service import generate_caption, extract_nouns
 
 #자기소개서 유사도분석 라이브러리
 from sentence_transformers import SentenceTransformer, util
@@ -534,30 +534,34 @@ def analyze_colors():
     }), 200
 
 
-#얼굴 유사도
 @app.route('/face-similarity', methods=['POST'])
 def calculate_face_similarity():
     try:
         data = request.get_json()
         reference_image_url = data['referenceImage']
         test_image_url = data['testImage']
-    # 이미지 URL에서 이미지 로드
+
+        # Load images from URLs
         response = requests.get(reference_image_url)
         reference_image = Image.open(BytesIO(response.content))
         response = requests.get(test_image_url)
         test_image = Image.open(BytesIO(response.content))
 
-        # 임시 파일에 이미지 저장
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as reference_temp, tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as test_temp:
-            reference_image.save(reference_temp.name)
-            test_image.save(test_temp.name)
+        # Create a temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            reference_path = os.path.join(temp_dir, "reference_image.jpg")
+            test_path = os.path.join(temp_dir, "test_image.jpg")
+
+            # Save images to the temporary directory
+            reference_image.save(reference_path)
+            test_image.save(test_path)
             
-            # 얼굴 유사도 계산
-            results = face_similarity(reference_temp.name, test_temp.name)
+            # Calculate face similarity
+            results = face_similarity(reference_path, test_path)
         
         return jsonify({"results": results})
     except Exception as e:
-        traceback.print_exc()  # 서버 로그에 에러를 출력
+        traceback.print_exc()
         return jsonify({"error": "An internal error occurred", "details": str(e), "results": []}), 500
 
 
@@ -605,15 +609,16 @@ def analyze_images_batch():
                 raise Exception(f"Invalid image at URL: {url} - {e}")
 
             caption = generate_caption(image_stream)
+            nouns = extract_nouns(caption)
             captions[url] = caption
 
-            # 캡션을 데이터베이스에 저장
+            # 캡션과 명사를 데이터베이스에 저장
             current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             insert_query = """
-            INSERT INTO image_captions (user_id, image_url, caption, similarity_score)
-            VALUES (%s, %s, %s, NULL)
+            INSERT INTO image_captions (user_id, image_url, caption, similarity_score, nouns)
+            VALUES (%s, %s, %s, NULL, %s)
             """
-            db_cursor.execute(insert_query, (user_id, url, caption))
+            db_cursor.execute(insert_query, (user_id, url, caption, nouns))
 
         db_connection.commit()
         return jsonify({"captions": captions})
@@ -626,24 +631,35 @@ def analyze_images_batch():
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
+
 app.register_blueprint(similarity_blueprint)
 
-#얼굴 탐지 true/false 반환 엔드포인트
+
+
 @app.route('/detect-faces', methods=['POST'])
 def face_detection():
     if 'profileImage' not in request.files:
-        return jsonify({"result": False}), 400  # 파일이 없을 때 False 반환
+        logging.error("No file part in the request")
+        return jsonify({"result": False, "message": "No file provided."}), 400
 
     image_file = request.files['profileImage']
-    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-    image_file.save(temp_file.name)
+
+    if not image_file.content_type.startswith('image/'):
+        logging.error("File uploaded is not an image")
+        return jsonify({"result": False, "message": "File is not an image."}), 400
+
+    with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as temp_file:
+        image_file.save(temp_file.name)
     
     try:
         result = detect_faces(temp_file.name)
-        return jsonify({"result": result}), 200  # 결과를 JSON으로 반환
+        return jsonify({"result": result}), 200
     finally:
-        os.unlink(temp_file.name)  # 임시 파일 삭제
-
+        try:
+            os.unlink(temp_file.name)
+        except PermissionError as e:
+            logging.error(f"Error deleting temporary file: {e}")
 
 
 if __name__ == "__main__":

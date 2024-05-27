@@ -2,10 +2,13 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import axios from 'axios';
+import { useRoute } from '@react-navigation/native';
 
-const AzureResult = ({ route }) => {
-  const { userId1, userId2 } = route.params;
+
+const AzureResult = () => {
+  const route = useRoute();
   const [averageSimilarity, setAverageSimilarity] = useState(null);
+  const { userId, randomUserIds } = route.params;
 
   useEffect(() => {
     const fetchSimilarity = async () => {
@@ -27,7 +30,7 @@ const AzureResult = ({ route }) => {
     };
 
     fetchSimilarity();
-  }, [userId1, userId2]);
+  },);
 
   return (
     <View style={styles.container}>

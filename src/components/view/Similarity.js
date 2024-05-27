@@ -104,7 +104,7 @@ const Similarity = () => {
       ))}
       <TouchableOpacity
         style={styles.matchButton}
-        onPress={() => navigation.navigate('차트', { userId, randomUserIds })}
+        onPress={() => navigation.navigate('캡션결과', { userId, randomUserIds })}
       >
         <Text style={styles.matchButtonText}>매칭상대 보러가기</Text>
       </TouchableOpacity>

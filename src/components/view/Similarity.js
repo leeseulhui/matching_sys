@@ -33,7 +33,7 @@ const Similarity = () => {
             testImage: data.User_profile_image,
           };
 
-          const analysisResponse = await fetch('http://localhost:6000/face-similarity', {
+          const analysisResponse = await fetch('http://10.0.2.2:6000/face-similarity', {
             method: 'POST',
             body: JSON.stringify(images),
             headers: {

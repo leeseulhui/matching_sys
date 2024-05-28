@@ -66,6 +66,10 @@ function handle_rebooted_user_data(jsonData){
 const gotoMain=()=>{
   navigation.navigate("인스타그램분석");
   // navigation.navigate("메인화면");
+  
+  //구용이 꺼
+  //navigation.navigate("얼굴인식");
+  //navigation.navigate("메인화면");
 }
 
 

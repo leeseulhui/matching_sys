@@ -1,4 +1,5 @@
-require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env' });
+require('dotenv').config();
+//require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env'}); //슬희꺼
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
@@ -489,7 +490,6 @@ app.post('/api/responses', (req, res) => {
 });
 
 
-
 //Mainscreen에서 비슷한 유저 띄우기
 app.get('/api/profiles/similar', async (req, res) => {
 
@@ -725,7 +725,7 @@ app.post('/api/store-similarity', async (req, res) => {
   }
 });
 
-//얼굴분석이 끝난 유사도를 정장해주는 쿼리
+//얼굴분석이 끝난 유사도를 정장해 주는 쿼리
 app.post('/api/store-similarity', async (req, res) => {
   const { user_id1, user_id2, similarity_score } = req.body;
   const query = `
@@ -745,8 +745,10 @@ app.post('/api/store-similarity', async (req, res) => {
   }
 });
 
-const query = util.promisify(connection.query).bind(connection);
 
+
+
+const query = util.promisify(connection.query).bind(connection);
 
 // 유사도 데이터를 가져오는 API 엔드포인트
 app.get('/similarity/:userId/:randomUserIds', async (req, res) => {
@@ -784,8 +786,7 @@ app.get('/similarity/:userId/:randomUserIds', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-//매칭테이블 생성 쿼리
+//매칭테이블 생성
 app.post('/match', (req, res) => {
   const { user1ID, user2ID } = req.body;
 

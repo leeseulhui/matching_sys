@@ -5,11 +5,56 @@ const ChatScreen = ({ route }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const [suggestions, setSuggestions] = useState([]);
-  const baseURL = 'http://localhost:5000';
-  const chatbotURL = 'http://localhost:5001';
-  const matchingID = route.params.matchingID;
-  const senderID = '7506894859370827'; // 로그인 한 유저 ID
-  const receiverID = '7389320737824274'; // 상대방 유저 ID
+  // 슬희가 짠 코드
+  // const baseURL = 'http://localhost:5000';
+  // const chatbotURL = 'http://localhost:5001';
+  // const matchingID = route.params.matchingID;
+  // const senderID = '7506894859370827'; // 로그인 한 유저 ID
+  // const receiverID = '7389320737824274'; // 상대방 유저 ID
+  const baseURL = 'https://owonet.store';
+  const { matchingID } = route.params;
+  const [ws, setWs] = useState(null);
+
+  useEffect(() => {
+    const websocket = new WebSocket('wss://owonet.store/chat/messages/ws');  // 서버의 WebSocket URL
+    setWs(websocket);
+
+    websocket.onopen = () => {
+      // 웹소켓 연결이 성공적으로 열리면 실행
+      console.log('WebSocket Connected');
+      websocket.send(JSON.stringify({ type: 'join', matchingID: matchingID }));  // 서버에 'join' 메시지 전송
+    };
+
+    websocket.onmessage = (e) => {
+      // 서버로부터 메시지를 수신하면 실행
+      const message = JSON.parse(e.data);
+      if (message.MatchingID === matchingID) {
+        setMessages(prevMessages => {
+          // 기존 메시지 목록에 동일한 ID를 가진 메시지가 있는지 확인
+          if (!prevMessages.some(msg => msg.MessageID === message.MessageID)) {
+            return [...prevMessages, message];
+          }
+          return prevMessages;
+        });
+      }
+    };
+
+    websocket.onerror = (e) => {
+      // 오류 처리
+      console.error('WebSocket Error: ', e.message);
+      console.error('WebSocket Error Event: ', e);
+    };
+
+    websocket.onclose = (e) => {
+      // 연결이 종료되면 실행
+      console.log(`WebSocket Disconnected: Reason: ${e.reason}, Code: ${e.code}, Clean: ${e.wasClean}`);
+      console.log('WebSocket Close Event: ', e);
+    };
+
+    return () => {
+      websocket.close();  // 컴포넌트가 언마운트될 때 웹소켓 연결 종료
+    };
+  }, []);
 
   useEffect(() => {
     fetchMessages();
@@ -18,8 +63,17 @@ const ChatScreen = ({ route }) => {
 
   const fetchMessages = async () => {
     try {
-      const response = await fetch(`${baseURL}/chat/messages/${matchingID}`);
-      if (!response.ok) throw new Error('Failed to fetch messages');
+      const response = await fetch(`http://10.0.2.2:8080/chat/messages/${matchingID}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch messages');
+      }
+
       const data = await response.json();
       setMessages(data.messages);
     } catch (error) {
@@ -45,8 +99,9 @@ const ChatScreen = ({ route }) => {
   };
 
   const sendMessage = async () => {
-    if (inputMessage.trim() === '') return;
+    if (inputMessage.trim() === '') return; // 입력된 메시지가 비어있는지 검사
     try {
+      // 서버에 POST 요청을 보냄
       const response = await fetch(`${baseURL}/chat/messages`, {
         method: 'POST',
         headers: {
@@ -64,7 +119,7 @@ const ChatScreen = ({ route }) => {
       setMessages(prevMessages => [...prevMessages, newMessage]);
       setInputMessage('');
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('Error sending message:', error); // 오류 처리
     }
   };
 

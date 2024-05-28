@@ -559,30 +559,34 @@ def analyze_colors():
     }), 200
 
 
-#얼굴 유사도
 @app.route('/face-similarity', methods=['POST'])
 def calculate_face_similarity():
     try:
         data = request.get_json()
         reference_image_url = data['referenceImage']
         test_image_url = data['testImage']
-    # 이미지 URL에서 이미지 로드
+
+        # Load images from URLs
         response = requests.get(reference_image_url)
         reference_image = Image.open(BytesIO(response.content))
         response = requests.get(test_image_url)
         test_image = Image.open(BytesIO(response.content))
 
-        # 임시 파일에 이미지 저장
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as reference_temp, tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as test_temp:
-            reference_image.save(reference_temp.name)
-            test_image.save(test_temp.name)
+        # Create a temporary directory
+        with tempfile.TemporaryDirectory() as temp_dir:
+            reference_path = os.path.join(temp_dir, "reference_image.jpg")
+            test_path = os.path.join(temp_dir, "test_image.jpg")
+
+            # Save images to the temporary directory
+            reference_image.save(reference_path)
+            test_image.save(test_path)
             
-            # 얼굴 유사도 계산
-            results = face_similarity(reference_temp.name, test_temp.name)
+            # Calculate face similarity
+            results = face_similarity(reference_path, test_path)
         
         return jsonify({"results": results})
     except Exception as e:
-        traceback.print_exc()  # 서버 로그에 에러를 출력
+        traceback.print_exc()
         return jsonify({"error": "An internal error occurred", "details": str(e), "results": []}), 500
 
 
@@ -778,5 +782,6 @@ def post_message():
         db_connection.rollback()
         return jsonify({"error": "Error inserting message into database", "details": str(error)}), 500
 
+app.register_blueprint(similarity_blueprint)
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6000, debug=True)

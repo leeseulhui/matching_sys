@@ -1,4 +1,4 @@
-require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env'});
+require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env' });
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
@@ -6,13 +6,16 @@ const WebSocket = require('ws');
 const AWS = require('aws-sdk');
 const fileUpload = require('express-fileupload');
 const helmet = require('helmet');
+const cors = require('cors');  // cors 모듈을 불러옴
+const util = require('util');
 const { error } = require('console');
 
 const app = express();
+app.use(cors()); // CORS 미들웨어 사용
 app.use(helmet());
 const port = process.env.PORT || 8080;
 
-//db 연결됐는지 확인하려고 짜놓음
+// db 연결됐는지 확인하려고 짜놓음
 console.log(process.env.DB_HOST);
 console.log(process.env.DB_USER);
 
@@ -22,6 +25,9 @@ const s3 = new AWS.S3({
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: process.env.AWS_REGION
 });
+
+
+
 app.use(bodyParser.json());
 app.use(fileUpload({
   limits: { fileSize: 15 * 1024 * 1024 },
@@ -34,7 +40,6 @@ const connection = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
 });
-
 
 // WebSocket 서버 설정(채팅)
 const server = require('http').createServer(app);
@@ -195,7 +200,7 @@ app.post('/save-selected-images', async (req, res) => {
 });
 
 
-// 사용자 테이블 페이지
+// 사용자 테이블
 app.post('/users', async (req, res) => {
   const userData = req.body;
 
@@ -314,7 +319,6 @@ app.get('/matchUsers', async (req, res) => {
   if (!userID) {
     return res.status(400).json({ error: 'UserID parameter is required' });
   }
-
   try {
     const query = `
       SELECT it.*, us.Username, us.User_profile_image 
@@ -335,7 +339,6 @@ app.get('/matchUsers', async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 
 
 app.post('/get-matching-id', async (req, res) => {
@@ -370,7 +373,7 @@ app.get('/user-photos/:userId', async (req, res) => {
       res.status(500).json({ error: '데이터베이스에서 사용자 사진 URL을 가져오는 중 오류 발생', details: err });
   }
 });
-///////////////////////////////
+
 app.post('/get-matching-id', async (req, res) => {
   const { user1ID, user2ID } = req.body;
   try {
@@ -387,6 +390,10 @@ app.post('/get-matching-id', async (req, res) => {
     res.status(500).json({ message: 'Database error', error });
   }
 });
+
+
+///////////////////////////////
+
 //테스트용 채팅id 찾기
 app.get('/chatItem/:id', async (req, res) => {
   const id = req.params.id;
@@ -414,6 +421,7 @@ app.get('/chatItem/:id', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 //채팅 이름 내역 쿼리
 app.get('/chatname/:userId', async (req, res) => {
   const userId = req.params.userId;
@@ -432,28 +440,21 @@ app.get('/chatname/:userId', async (req, res) => {
   }
 });
 
-
-app.get('/chat/messages/:matchingID', async (req, res) => {
-  const matchingID = req.params.matchingID;
-
+app.get('/match/:matchingID', async (req, res) => {
+  const { matchingID } = req.params;
+  const query = 'SELECT * FROM Matching WHERE MatchingID = ?';
   try {
-      const query = 'SELECT * FROM Messages WHERE MatchingID = ? ORDER BY SentDate ASC';
-      const [messages] = await connection.query(query, [matchingID]);
-
-      // 콘솔에 메시지 내용 출력
-      console.log("Retrieved messages:", messages);
-
-      if (messages.length > 0) {
-          res.status(200).json({ messages });
-      } else {
-          res.status(404).json({ message: 'No messages found for this matching ID.' });
-      }
+    const [results] = await connection.query(query, [matchingID]);
+    if (results.length > 0) {
+      res.json(results[0]);
+    } else {
+      res.status(404).json({ error: 'Matching not found' });
+    }
   } catch (error) {
-      console.error('Failed to retrieve messages:', error);
-      res.status(500).json({ message: 'Failed to retrieve messages due to server error.', error });
+    console.error('Failed to fetch matching:', error);
+    res.status(500).json({ error: 'Failed to fetch matching', details: error });
   }
 });
-
 
 
 // 자기소개서 생선 전 질문에 대한 답변 부분
@@ -603,6 +604,7 @@ app.get('/api/ideal-type', async (req, res) => {
   }
 });
 
+
 // 매칭을 위해서 받아온 랜던 5명의 유저의 프로필 정보를 가져오는 쿼리
 app.get('/api/ideal-typeR', async (req, res) => {
   const { userId } = req.query;
@@ -624,7 +626,7 @@ app.get('/api/ideal-typeR', async (req, res) => {
   }
 });
 
-//유저아이디를 가지고 유저테이을에서 유저 이미지 url을 받아오는 쿼리
+//유저아이디를 가지고 유저테이블에서 유저 이미지 url을 받아오는 쿼리
 app.get('/api/user-profile', async (req, res) => {
   const userId = req.query.userId;
   console.log(`Received request for user profile image with userId: ${userId}`);
@@ -653,6 +655,8 @@ app.get('/api/user-profile', async (req, res) => {
   }
 });
 
+
+//이상형 유사도 저장 쿼리
 app.post('/api/save-idealsimilarity', async (req, res) => {
   let { userId1, userId2, similarity } = req.body;
   if (userId1 > userId2) {
@@ -679,7 +683,7 @@ app.post('/api/save-idealsimilarity', async (req, res) => {
 });
 
 
-// 해시태그 분석을 위한 랜덤유저 해시태그 정보 받아오기
+// 해시태그 분석을 위한 랜덤유저 해시태그 정보 받아오는 쿼리
 app.get('/api/random-users', async (req, res) => {
   const { userId } = req.query;  // 쿼리 파라미터에서 userId 추출
   if (!userId) {
@@ -703,7 +707,7 @@ app.get('/api/random-users', async (req, res) => {
   }
 });
 
-//얼굴분석을 마친 데이터를 db에 저자을 해주는 코드
+//얼굴분석을 마친 데이터를 db에 저자을 해주는 쿼리
 app.post('/api/store-similarity', async (req, res) => {
   const { user_id1, user_id2, similarity_score } = req.body;
   const query = `
@@ -740,4 +744,184 @@ app.post('/api/store-similarity', async (req, res) => {
     res.status(500).json({ error: 'Error storing similarity score' });
   }
 });
+
+const query = util.promisify(connection.query).bind(connection);
+
+
+// 유사도 데이터를 가져오는 API 엔드포인트
+app.get('/similarity/:userId/:randomUserIds', async (req, res) => {
+  const { userId, randomUserIds } = req.params;
+  const userIds = randomUserIds.split(',');
+  const userIdsString = userIds.map(id => `'${id}'`).join(',');
+
+  console.log(`Request received for userId: ${userId} with randomUserIds: ${randomUserIds}`);
+
+  const queries = [
+    `SELECT similarity FROM DatingProfileSimilarity WHERE user_id_1 = ? AND user_id_2 IN (${userIdsString})`,
+    `SELECT similarity_score FROM UserCaptionSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
+    `SELECT similarity_score FROM UserFaceSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
+    `SELECT idealsimilarity_score FROM UserIdealSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
+    `SELECT similarity_score FROM UserSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`
+  ];
+
+  try {
+    const results = await Promise.all(queries.map(async (q) => {
+      console.log(`Executing query: ${q} with userId: ${userId}`);
+      const [result] = await connection.query(q, [userId]);
+      console.log(`Query result for query "${q}": ${JSON.stringify(result)}`);
+      return result;
+    }));
+    console.log('All queries successful with results:', JSON.stringify(results));
+    res.json({
+      datingProfileSimilarity: results[0].map(row => row.similarity),
+      userCaptionSimilarity: results[1].map(row => row.similarity_score),
+      userFaceSimilarity: results[2].map(row => row.similarity_score),
+      userIdealSimilarity: results[3].map(row => row.idealsimilarity_score),
+      userSimilarity: results[4].map(row => row.similarity_score)
+    });
+  } catch (err) {
+    console.error(`Promise failed with error: ${err}`);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+//매칭테이블 생성 쿼리
+app.post('/match', (req, res) => {
+  const { user1ID, user2ID } = req.body;
+
+  if (!user1ID || !user2ID) {
+    return res.status(400).send('user1ID와 user2ID가 필요합니다.');
+  }
+
+  const query = `INSERT INTO Matching (User1ID, User2ID) VALUES (?, ?)`;
+  connection.query(query, [user1ID, user2ID], (err, result) => {
+    if (err) {
+      console.error('매칭 데이터베이스 삽입 오류:', err);
+      return res.status(500).send('매칭 오류가 발생했습니다.');
+    }
+    res.status(201).send({ message: '매칭 성공', matchingID: result.insertId });
+  });
+});
+
+//사용자 프로필(마이페이지) 정보 수정 쿼리
+app.patch('//usersupdate/:userId', async (req, res) => {
+  const { userId, username, gender, birthdate, snsAccountUrl, religion, mbti, interests, attractions } = req.body;
+
+  const query = `
+    UPDATE Users 
+    SET Username = ?, Gender = ?, Birthdate = ?, Sns_account_url = ?, Religion = ?, MBTI = ?, Interests = ?, Attractions = ?
+    WHERE User_id = ?
+  `;
+
+  try {
+    const [result] = await connection.query(query, [
+      username, gender, birthdate, snsAccountUrl, religion, mbti, interests, attractions, userId
+    ]);
+
+    if (result.affectedRows > 0) {
+      res.status(200).json({ message: '프로필이 성공적으로 업데이트되었습니다.' });
+    } else {
+      res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+  } catch (error) {
+    console.error('프로필 업데이트 중 오류 발생:', error);
+    res.status(500).json({ error: '프로필 업데이트 중 오류 발생', details: error });
+  }
+});
+
+
+
+//////////////
+//채팅 메시지 전송 기능
+app.post('/chat/messages', async (req, res) => {
+  const { matchingID, senderID, receiverID, messageContent } = req.body;
+  if (!matchingID || !senderID || !receiverID || !messageContent) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  const insertQuery = `
+    INSERT INTO Messages (MatchingID, SenderID, ReceiverID, MessageContent, SentDate, DeletedContent)
+    VALUES (?, ?, ?, ?, NOW(), NULL)
+  `;
+  try {
+    const [result] = await connection.query(insertQuery, [matchingID, senderID, receiverID, messageContent]);
+    const newMessageId = result.insertId;
+    const newMessage = {
+      MessageID: newMessageId,
+      MatchingID: matchingID,
+      SenderID: senderID,
+      ReceiverID: receiverID,
+      MessageContent: messageContent,
+      SentDate: new Date().toISOString(),
+    };
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN && client.matchingID === matchingID) {
+        client.send(JSON.stringify(newMessage));
+      }
+    });
+    res.status(200).json(newMessage);
+  } catch (error) {
+    console.error('Error inserting message into database:', error);
+    res.status(500).json({ error: 'Error inserting message into database', details: error });
+  }
+});
+
+//채팅 메시지 조회 http api
+app.get('/chat/messages/:matchingID', async (req, res) => {
+  const matchingID = req.params.matchingID;
+  try {
+    const query = 'SELECT * FROM Messages WHERE MatchingID = ? ORDER BY SentDate ASC';
+    const [messages] = await connection.query(query, [matchingID]);
+    if (messages.length > 0) {
+      res.status(200).json({ messages });
+    } else {
+      res.status(404).json({ message: 'No messages found for this matching ID.' });
+    }
+  } catch (error) {
+    console.error('Failed to retrieve messages:', error);
+    res.status(500).json({ message: 'Failed to retrieve messages due to server error.', error });
+  }
+});
+
+//챗봇 제안 기능 제공 http api
+app.post('/chatbot/suggestions', async (req, res) => {
+  const { userId } = req.body;
+
+  try {
+    const [userResult] = await connection.query("SELECT * FROM Users WHERE User_id = ?", [userId]);
+    const userProfile = userResult[0];
+
+    if (!userProfile) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const gptResponse = await openai.createChatCompletion({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content: `Generate conversation starters for someone who likes ${userProfile.Interests}.`,
+        },
+        {
+          role: "user",
+          content: `Generate conversation starters for someone who likes ${userProfile.Interests}.`,
+        },
+      ],
+      max_tokens: 50,
+      n: 3,
+      stop: null,
+      temperature: 0.7,
+    });
+
+    const suggestions = gptResponse.data.choices.map(choice => choice.message.content.trim());
+
+    res.json(suggestions);
+  } catch (error) {
+    console.error('Error fetching chatbot suggestions:', error);
+    res.status(500).json({ error: 'Error fetching chatbot suggestions', details: error });
+  }
+});
+
+
+
 server.listen(port, () => console.log(`Server is running on port ${port}`));

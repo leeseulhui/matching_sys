@@ -27,7 +27,7 @@ const MainScreen = () => {
   const [similarProfiles, setSimilarProfiles] = useState([]);
 
   useEffect(() => {
-    const userId = '7389320737824274'; 
+    const userId = '7389320737824275'; 
     fetchUsername(userId);
     // fetchSimilarProfiles();
   }, []);

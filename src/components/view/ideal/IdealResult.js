@@ -11,7 +11,7 @@ const IdealResult = ({ navigation, route }) => {
 
   useEffect(() => {
     const fetchMatchedUsers = async () => {
-      const url = `http://10.0.2.2:8080/matchUsers?userID=${encodeURIComponent('7506894859370827')}`;
+      const url = `http://localhost:8080/matchUsers?userID=${encodeURIComponent('7506894859370827')}`;
       try {
         const response = await axios.get(url);
         setResults(response.data);

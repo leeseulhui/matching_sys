@@ -7,18 +7,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   ScrollView,
-  TextInput,
   Button,
   Modal,
   Alert,
-  Platform
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { fullHeight, fullWidth, flaskUrl, nodeUrl } from '../../deviceSet';//플라스크, 노드 요청 url 추가
+import { Picker } from '@react-native-picker/picker';
+import { fullHeight, fullWidth, flaskUrl, nodeUrl } from '../../deviceSet';
 import { image } from '../../../assets/image';
-import { useDispatch,useSelector } from 'react-redux';
-import {update_user_profile_image} from '../../reduxContainer/action/signUpAction'
+import { useDispatch, useSelector } from 'react-redux';
+import { update_user_profile_image } from '../../reduxContainer/action/signUpAction';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function UserProfileScreen() {
@@ -27,15 +26,27 @@ export default function UserProfileScreen() {
   const [profile, setProfile] = useState(null);
   const [error, setError] = useState(null);
   const [profilePicUri, setProfilePicUri] = useState('');
-  const [newGender, setNewGender] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
-  const [changed, setChanged] = useState(false);// 리덕스에 프로필 이미지가 등록 되었나 확인하는 작업
-  const user = useSelector((state)=>state.instaUserData);// 유저데이터 확인
-  console.log(user);// 확인용 
-  function handle_update_profileImage(url){
+  const [editableField, setEditableField] = useState('');
+  const [newValue, setNewValue] = useState('');
+  const [changed, setChanged] = useState(false);
+  const user = useSelector((state) => state.instaUserData);
+
+  const options = {
+    gender: ['male', 'female'],
+    religion: ['기독교', '불교', '유교', '원불교', '천도교', '무교', '대종교', '이슬람교', '유대교', '기타', '없음'],
+    mbti: ['ISTJ', 'ISFJ', 'INFJ', 'INTJ', 'ISTP', 'ISFP', 'INFP', 'INTP', 'ESTP', 'ESFP', 'ENFP', 'ENTP', 'ESTJ', 'ESFJ', 'ENFJ', 'ENTJ'],
+    interests: ['여행', '독서', '요리', '영화', '사진', '운동', '자기계발', '기타'],
+    attractions: ['나와 유머 감각이 통할 때', '지적인 대화를 할 때', '외국어를 유창하게 할 때', '새로운 것에 도전할 때', '감정을 잘 절제할 때', '자기 일을 열심히 할 때', '잘 웃을 때', '옷을 잘 입을 때', '예의 바를 때']
+  };
+
+  console.log(user);
+
+  function handle_update_profileImage(url) {
     dispatch(update_user_profile_image(url));
     setChanged(true);
-  } 
+  }
+
   useEffect(() => {
     async function fetchUserProfile() {
       try {
@@ -53,13 +64,13 @@ export default function UserProfileScreen() {
       }
     }
     fetchUserProfile();
-  }, []);
-  // userProfile이 바뀌었을 때만 실행하는 코드
-  useEffect(()=>{
-    if(changed==true){
-      AsyncStorage.setItem('userDatas',user)
+  }, [user.User_id]);
+
+  useEffect(() => {
+    if (changed) {
+      AsyncStorage.setItem('userDatas', JSON.stringify(user));
     }
-  },[user])
+  }, [user, changed]);
 
   const handleUpdate = async () => {
     try {
@@ -69,15 +80,15 @@ export default function UserProfileScreen() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          gender: newGender,
+          [editableField]: newValue,
         }),
       });
       if (!response.ok) throw new Error('프로필 업데이트 실패');
       const updatedProfile = await response.json();
-      console.log('서버 응답:', updatedProfile); // 서버 응답 로깅
-      setProfile(prevState => ({
+      console.log('서버 응답:', updatedProfile);
+      setProfile((prevState) => ({
         ...prevState,
-        Gender: updatedProfile.Gender // 마찬가지로 Gender 필드명으로 반환
+        [editableField]: updatedProfile[editableField],
       }));
       setModalVisible(false);
     } catch (error) {
@@ -88,11 +99,11 @@ export default function UserProfileScreen() {
 
   const selectImage = () => {
     const options = { mediaType: 'photo', quality: 1 };
-    launchImageLibrary(options, async response => {
+    launchImageLibrary(options, async (response) => {
       if (response.didCancel) {
         console.log('User cancelled image picker');
-      } else if (response.error) {
-        console.log('ImagePicker Error: ', response.error);
+      } else if (response.errorCode) {
+        console.log('ImagePicker Error: ', response.errorMessage);
       } else {
         const source = response.assets[0].uri;
         const data = new FormData();
@@ -103,49 +114,48 @@ export default function UserProfileScreen() {
         });
         console.log(data);
         let checkface = false;
-        //// 이부분이 얼굴 탐지가 되는지 안되는지 요청하는 코드
+
         try {
-          const response = await fetch(`${flaskUrl}//detect-faces`, {
-            method: 'POST',
-            body: data,
-            headers: {
-              'Content-Type': 'multipart/form-data', // 별도의 Content-Type 헤더 설정을 제거
-            },
-          });
-          if (!response.ok) {
-            throw new Error(`Failed to upload image. Status: ${response.status}`);
-          }
-          //이 결과값 부분을 가지고 아래의 로직 수행 / 수행안함 결정 -- **중요**
-          const result = await response.json();
-          console.log('Upload successful 확인', result);
-          checkface = result.result;
-        } catch (error) {
-          console.error('Error uploading image 실패 코드:', error);
-        }
-        console.log("얼굴 찾았음 다음 진행도 확인",checkface);
-        //이 부분의 응답이 true일 때 아래의 로직을 수행.
-        if(checkface != false){
-        data.append('userId', user.User_id);
-        try {
-          const uploadResponse = await fetch(`${nodeUrl}/upload-profile-image`, {
+          const response = await fetch(`${flaskUrl}/detect-faces`, {
             method: 'POST',
             body: data,
             headers: {
               'Content-Type': 'multipart/form-data',
             },
           });
-          if (!uploadResponse.ok) {
-            throw new Error(`Failed to upload image. Status: ${uploadResponse.status}`);
+          if (!response.ok) {
+            throw new Error(`Failed to upload image. Status: ${response.status}`);
           }
-          const uploadResult = await uploadResponse.json();
-          setProfilePicUri(uploadResult.imageUrl);//프로필 이미지 띄우는 창
-          handle_update_profileImage(uploadResult.imageUrl);
-          console.log('Image upload success:', uploadResult);
+          const result = await response.json();
+          console.log('Upload successful 확인', result);
+          checkface = result.result;
         } catch (error) {
-          console.error('Image upload error:', error);// 에러 메세지 확인
+          console.error('Error uploading image 실패 코드:', error);
         }
-        checkface = false;
-      }
+        console.log("얼굴 찾았음 다음 진행도 확인", checkface);
+
+        if (checkface) {
+          data.append('userId', user.User_id);
+          try {
+            const uploadResponse = await fetch(`${nodeUrl}/upload-profile-image`, {
+              method: 'POST',
+              body: data,
+              headers: {
+                'Content-Type': 'multipart/form-data',
+              },
+            });
+            if (!uploadResponse.ok) {
+              throw new Error(`Failed to upload image. Status: ${uploadResponse.status}`);
+            }
+            const uploadResult = await uploadResponse.json();
+            setProfilePicUri(uploadResult.imageUrl);
+            handle_update_profileImage(uploadResult.imageUrl);
+            console.log('Image upload success:', uploadResult);
+          } catch (error) {
+            console.error('Image upload error:', error);
+          }
+          checkface = false;
+        }
       }
     });
   };
@@ -161,7 +171,7 @@ export default function UserProfileScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
       <Modal
         animationType="slide"
         transparent={true}
@@ -173,21 +183,26 @@ export default function UserProfileScreen() {
       >
         <View style={styles.centeredView}>
           <View style={styles.modalView}>
-            <TextInput
-              placeholder="새 성별"
-              value={newGender}
-              onChangeText={setNewGender}
-              style={styles.modalText}
-            />
-            <Button
-              title="저장"
-              onPress={handleUpdate}
-            />
-            <Button
-              title="취소"
-              color="red"
-              onPress={() => setModalVisible(!modalVisible)}
-            />
+            <Picker
+              selectedValue={newValue}
+              onValueChange={(itemValue) => setNewValue(itemValue)}
+              style={styles.picker}
+            >
+              {options[editableField] && options[editableField].map((option, index) => (
+                <Picker.Item key={index} label={option} value={option} />
+              ))}
+            </Picker>
+            <View style={styles.buttonContainer}>
+              <Button
+                title="저장"
+                onPress={handleUpdate}
+              />
+              <Button
+                title="취소"
+                color="red"
+                onPress={() => setModalVisible(!modalVisible)}
+              />
+            </View>
           </View>
         </View>
       </Modal>
@@ -201,10 +216,6 @@ export default function UserProfileScreen() {
         </TouchableOpacity>
         <Text style={styles.name}>{profile.Username}</Text>
         <Text>Gender: {profile.Gender}</Text>
-        <Button
-          title="정보 수정"
-          onPress={() => setModalVisible(true)}
-        />
       </View>
       <View style={styles.representCard}>
         <View style={{ flexDirection: "row" }}>
@@ -216,50 +227,39 @@ export default function UserProfileScreen() {
             <Text>38만</Text>
           </View>
         </View>
-
       </View>
-      <View style={{ flexDirection: 'row', justifyContent: "space-around", width: fullWidth * 0.8 }}>
-        <TouchableOpacity onPress={() => navigation.navigate('데이팅테스트')}>
-          <View style={styles.etcDot}></View>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate("해시테스트")}>
-          <View style={styles.etcDot}></View>
-        </TouchableOpacity>
-        
-      </View>
-      <View style={{ width: fullWidth * 0.8, height: fullWidth * 0.2, backgroundColor: "#f0f8ff", borderRadius: 15, marginTop: 15, flexDirection: 'row', alignItems: "center", justifyContent: "space-around" }}>
 
-        <TouchableOpacity style={styles.serviceList} >
-          <Image style={{ width: 40, height: 40, }} source={image.support} />
-          <Text>고객센터</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.serviceList} >
-          < Image style={{ width: 40, height: 40 }} source={image.event} />
-          <Text>이벤트</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.serviceList} >
-          <Image style={{ width: 40, height: 40 }} source={image.beLike} />
-          <Text>팔로우</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.serviceList} onPress={() => navigation.navigate("세팅")}>
-          <Image style={{ width: 40, height: 40 }} source={image.setting} />
-          <Text>설정</Text>
-        </TouchableOpacity>
+      <View style={styles.aboutSection}>
+        {renderProfileDetail('Email', profile.Email)}
+        {renderProfileDetail('Phone', profile.Phone)}
+        {renderProfileDetail('Address', profile.Address)}
+        {renderProfileDetail('Birthdate', profile.Birthdate)}
+        {renderProfileDetail('Religion', profile.Religion)}
+        {renderProfileDetail('MBTI', profile.MBTI)}
+        {renderProfileDetail('Interests', profile.Interests)}
+        {renderProfileDetail('Attractions', profile.Attractions)}
       </View>
     </ScrollView>
   );
-}
-function renderProfileDetail(label, value) {
-  return (
-    <View style={styles.aboutItem}>
-      <Text style={styles.aboutLabel}>{label}</Text>
-      <Text style={styles.aboutText}>{value}</Text>
-    </View>
-  );
+
+  function renderProfileDetail(label, value) {
+    return (
+      <TouchableOpacity onPress={() => {
+        setEditableField(label.toLowerCase());
+        setNewValue(value);
+        setModalVisible(true);
+      }}>
+        <View style={styles.aboutItem}>
+          <Text style={styles.aboutLabel}>{label}</Text>
+          <Text style={styles.aboutText}>{value}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDEFED', alignItems: "center" },
+  scrollContainer: { flexGrow: 1, backgroundColor: '#FDEFED', padding: 20 },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { color: 'red' },
   header: { paddingTop: 50, paddingBottom: 20, alignItems: 'center' },
@@ -301,19 +301,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)', // Semi-transparent background
   },
   modalView: {
-    margin: 20,
+    width: fullWidth * 0.8, // Adjust the width to make the modal larger
+    height: fullHeight * 0.5, // Increase the height to make the modal larger
     backgroundColor: "white",
     borderRadius: 20,
     padding: 35,
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5
+    justifyContent: 'space-between', // Ensure buttons are at the bottom
   },
   modalText: {
     marginBottom: 15,
@@ -321,5 +315,16 @@ const styles = StyleSheet.create({
     width: 200, // Set a fixed width for text inputs
     borderBottomWidth: 1, // Underline text inputs
     borderBottomColor: '#ccc',
+  },
+  picker: {
+    width: '100%',
+    height: 150, // Increase height for better visibility
+  },
+  buttonContainer: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 10,
   },
 });

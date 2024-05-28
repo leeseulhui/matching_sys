@@ -49,6 +49,9 @@ from hash_similarity import similarity_blueprint
 #연결 확인 부분(터미널에 뜨는 곳)
 app = Flask(__name__)
 
+#챗봇
+from transformers import pipeline
+
 CORS(app)  # 모든 도메인에 요청 허용
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -62,6 +65,9 @@ db_name = os.getenv('DB_NAME')
 
 model = SentenceTransformer('sentence-transformers/paraphrase-mpnet-base-v2')
 
+# 챗봇 모델 로드 (사용자가 제공한 설정에 맞춤)
+sentiment_analyzer = pipeline('sentiment-analysis', model='bert-base-uncased')
+
 try:
     db_connection = mysql.connector.connect(
         host=db_host,
@@ -70,7 +76,7 @@ try:
         database=db_name
     )
     logger.info("DB 연결 성공")
-    db_cursor = db_connection.cursor()
+    db_cursor = db_connection.cursor(dictionary=True)
 except mysql.connector.Error as error:
     logger.error(f"DB 연결 실패: {error}")
     db_connection = None
@@ -183,6 +189,7 @@ def generate_introduction():
         if not responses:
             return jsonify({'error': 'No responses found for this user'}), 404
 
+        # 질문에 맞게 프롬프트 생성
         question_map = {
             "사랑": [
                 "What is the most important characteristic of an ideal partner?",
@@ -579,7 +586,7 @@ def calculate_face_similarity():
         return jsonify({"error": "An internal error occurred", "details": str(e), "results": []}), 500
 
 
-#이미지 캡션 분석(azure 사용)
+# 이미지 캡션 분석(azure 사용)
 @app.route('/api/analyze-batch', methods=['POST'])
 def analyze_images_batch():
     if not db_connection:
@@ -599,6 +606,7 @@ def analyze_images_batch():
             url = url_info['media_url']
             media_type = url_info.get('media_type', '')
 
+            # 비디오 파일은 무시
             if media_type == 'VIDEO':
                 logger.info(f"Skipping video URL: {url}")
                 continue
@@ -620,6 +628,7 @@ def analyze_images_batch():
                 raise Exception(f"Invalid image at URL: {url} - {e}")
 
             caption = generate_caption(image_stream)
+            nouns = extract_nouns(caption)
             captions[url] = caption
 
             nouns = extract_nouns(caption)
@@ -628,7 +637,13 @@ def analyze_images_batch():
             insert_query = """
             INSERT INTO image_captions (user_id, image_url, caption, similarity_score, nouns)
             VALUES (%s, %s, %s, NULL, %s)
+            ON DUPLICATE KEY UPDATE
+                image_url = VALUES(image_url),
+                caption = VALUES(caption),
+                similarity_score = VALUES(similarity_score),
+                nouns = VALUES(nouns)
             """
+
             db_cursor.execute(insert_query, (user_id, url, caption, nouns))
 
         db_connection.commit()
@@ -688,6 +703,7 @@ def calculate_similarity_scores(user_id):
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 #얼굴 탐지 true/false 반환 엔드포인트
 @app.route('/detect-faces', methods=['POST'])
 def face_detection():
@@ -714,6 +730,53 @@ def face_detection():
             logging.error(f"Error deleting temporary file: {e}")
 
 
+#챗봇 부분
+@app.route('/chat/messages/<matchingID>', methods=['GET'])
+def get_messages(matchingID):
+    try:
+        query = 'SELECT * FROM Messages WHERE MatchingID = %s ORDER BY SentDate ASC'
+        db_cursor.execute(query, (matchingID,))
+        messages = db_cursor.fetchall()
+        if messages:
+            return jsonify({"messages": messages})
+        else:
+            return jsonify({"message": "No messages found for this matching ID."}), 404
+    except Exception as error:
+        logger.error('Failed to retrieve messages:', error)
+        return jsonify({"message": "Failed to retrieve messages due to server error.", "error": str(error)}), 500
+
+@app.route('/chat/messages', methods=['POST'])
+def post_message():
+    data = request.json
+    matchingID = data.get('matchingID')
+    senderID = data.get('senderID')
+    receiverID = data.get('receiverID')
+    messageContent = data.get('messageContent')
+    
+    if not matchingID or not senderID or not receiverID or not messageContent:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    insert_query = '''
+        INSERT INTO Messages (MatchingID, SenderID, ReceiverID, MessageContent, SentDate, DeletedContent)
+        VALUES (%s, %s, %s, %s, NOW(), NULL)
+    '''
+    try:
+        db_cursor.execute(insert_query, (matchingID, senderID, receiverID, messageContent))
+        db_connection.commit()
+        new_message_id = db_cursor.lastrowid
+        new_message = {
+            "MessageID": new_message_id,
+            "MatchingID": matchingID,
+            "SenderID": senderID,
+            "ReceiverID": receiverID,
+            "MessageContent": messageContent,
+            "SentDate": datetime.now().isoformat()
+        }
+        return jsonify(new_message)
+    except Exception as error:
+        logger.error('Error inserting message into database:', error)
+        db_connection.rollback()
+        return jsonify({"error": "Error inserting message into database", "details": str(error)}), 500
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6000, debug=True)

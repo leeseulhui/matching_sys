@@ -4,46 +4,16 @@ import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'r
 const ChatScreen = ({ route }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
-  const baseURL = 'http://10.0.2.2:8080';
-  const [ws, setWs] = useState(null);
-  const matchingID = 'your_matching_id_here'; // Replace with actual matching ID for testing
-
-  useEffect(() => {
-    const websocket = new WebSocket('ws://10.0.2.2:8080/chat');  // WebSocket server URL
-    setWs(websocket);
-
-    websocket.onopen = () => {
-      console.log('WebSocket Connected');
-      websocket.send(JSON.stringify({ type: 'join', matchingID }));  // Join message
-    };
-
-    websocket.onmessage = (e) => {
-      const message = JSON.parse(e.data);
-      if (message.MatchingID === matchingID) {
-        setMessages(prevMessages => {
-          if (!prevMessages.some(msg => msg.MessageID === message.MessageID)) {
-            return [...prevMessages, message];
-          }
-          return prevMessages;
-        });
-      }
-    };
-
-    websocket.onerror = (e) => {
-      console.error('WebSocket Error: ', e.message);
-    };
-
-    websocket.onclose = (e) => {
-      console.log(`WebSocket Disconnected: Reason: ${e.reason}, Code: ${e.code}, Clean: ${e.wasClean}`);
-    };
-
-    return () => {
-      websocket.close();
-    };
-  }, []);
+  const [suggestions, setSuggestions] = useState([]);
+  const baseURL = 'http://localhost:5000';
+  const chatbotURL = 'http://localhost:5001';
+  const matchingID = route.params.matchingID;
+  const senderID = '7506894859370827'; // 로그인 한 유저 ID
+  const receiverID = '7389320737824274'; // 상대방 유저 ID
 
   useEffect(() => {
     fetchMessages();
+    fetchSuggestions();
   }, []);
 
   const fetchMessages = async () => {
@@ -57,6 +27,23 @@ const ChatScreen = ({ route }) => {
     }
   };
 
+  const fetchSuggestions = async () => {
+    try {
+      const response = await fetch(`${chatbotURL}/chatbot/suggestions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: senderID }),
+      });
+      if (!response.ok) throw new Error('Failed to fetch suggestions');
+      const data = await response.json();
+      setSuggestions(data);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+    }
+  };
+
   const sendMessage = async () => {
     if (inputMessage.trim() === '') return;
     try {
@@ -67,25 +54,25 @@ const ChatScreen = ({ route }) => {
         },
         body: JSON.stringify({
           matchingID,
-          senderID: '7506894859370827', // Static sender ID for testing
-          receiverID: '7389320737824274', // Static receiver ID for testing
+          senderID,
+          receiverID,
           messageContent: inputMessage,
         }),
       });
-
-      if (!response.ok) throw new Error('Failed to send message');
+      if (!response.ok) throw new Error(`Failed to send message: ${response.statusText}`);
       const newMessage = await response.json();
-      setMessages(prevMessages => {
-        if (!prevMessages.some(msg => msg.MessageID === newMessage.MessageID)) {
-          return [...prevMessages, newMessage];
-        }
-        return prevMessages;
-      });
+      setMessages(prevMessages => [...prevMessages, newMessage]);
       setInputMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
     }
   };
+
+  const renderSuggestion = ({ item }) => (
+    <TouchableOpacity style={styles.suggestionButton} onPress={() => setInputMessage(item)}>
+      <Text style={styles.suggestionText}>{item}</Text>
+    </TouchableOpacity>
+  );
 
   const renderItem = ({ item }) => (
     <View style={styles.messageContainer}>
@@ -101,6 +88,19 @@ const ChatScreen = ({ route }) => {
         data={messages}
         renderItem={renderItem}
         keyExtractor={(item, index) => item.MessageID ? item.MessageID.toString() : `unique-${index}`}
+        ListHeaderComponent={
+          suggestions.length > 0 && (
+            <View style={styles.suggestionsContainer}>
+              <Text style={styles.suggestionsTitle}>Chatbot Suggestions</Text>
+              <FlatList
+                data={suggestions}
+                renderItem={renderSuggestion}
+                keyExtractor={(item, index) => `suggestion-${index}`}
+                horizontal
+              />
+            </View>
+          )
+        }
       />
       <View style={styles.inputContainer}>
         <TextInput
@@ -164,6 +164,24 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 12,
     color: '#999999',
+  },
+  suggestionsContainer: {
+    padding: 10,
+  },
+  suggestionsTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  suggestionButton: {
+    backgroundColor: '#E0E0E0',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginRight: 10,
+  },
+  suggestionText: {
+    fontSize: 16,
   },
 });
 

@@ -24,7 +24,7 @@ const DatingProfileSimilarity = ({ navigation }) => {
         const response = await axios.post(`${baseURL}/get_matching_results`, { userId });
 
         if (response.status === 200) {
-          setSimilarityResults(response.data.results.slice(0, 3));  // 상위 3명만 저장
+          setSimilarityResults(response.data.results.slice(0, 10));  // 상위 3명만 저장
         } else {
           throw new Error('Failed to fetch similarity results');
         }

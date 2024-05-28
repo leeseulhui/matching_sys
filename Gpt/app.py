@@ -8,6 +8,7 @@ import openai
 from flask_cors import CORS
 from io import BytesIO
 import re 
+import json
 
 #이미지 캡션 라이브러리
 from azure_service import generate_caption, extract_nouns
@@ -158,7 +159,6 @@ def save_response():
         return jsonify({'message': '데이터 저장 실패'}), 500
 
 
-
 #자기소개서 생성
 @app.route('/generate_introduction', methods=['POST'])
 def generate_introduction():
@@ -180,12 +180,12 @@ def generate_introduction():
         user_result = db_cursor.fetchone()
         if not user_result:
             return jsonify({'error': 'User not found'}), 404
-        username = user_result[0]
+
+        username = user_result['Username']  # 사전 형식으로 결과를 받으므로 'Username' 키를 사용
 
         response_query = "SELECT Category, QuestionIndex, Answer FROM UserResponses WHERE User_id = %s"
         db_cursor.execute(response_query, (user_id,))
         responses = db_cursor.fetchall()
-
         if not responses:
             return jsonify({'error': 'No responses found for this user'}), 404
 
@@ -225,10 +225,12 @@ def generate_introduction():
             }
         ]
 
-
-        for category, question_index, answer in responses:
+        for response in responses:
+            category = response['Category']
+            question_index = response['QuestionIndex']
+            answer = response['Answer']
             question = question_map[category][question_index]
-        messages.append({"role": "user", "content": f"{question}: {answer}"})
+            messages.append({"role": "user", "content": f"{question}: {answer}"})
 
         messages.append({
             "role": "system",
@@ -270,11 +272,11 @@ def generate_introduction():
         formatted_introduction = '\n\n'.join(re.split(r'(?<=\.) ', formatted_introduction))
 
         summary_messages = [
-        {"role": "system", "content": "You are a sophisticated dating matching assistant. Your task is to extract key information from a user-provided introduction, emphasizing clear, concise language."},
-        {"role": "system", "content": "Identify the main characteristics, hobbies, and preferences of the user."},
-        {"role": "system", "content": "Summarize the introduction into three clear and concise paragraphs, focusing on key details."},
-        {"role": "user", "content": f"Summarize the following text in three concise paragraphs, highlighting the key aspects:\n\n{formatted_introduction}"}
-    ]
+            {"role": "system", "content": "You are a sophisticated dating matching assistant. Your task is to extract key information from a user-provided introduction, emphasizing clear, concise language."},
+            {"role": "system", "content": "Identify the main characteristics, hobbies, and preferences of the user."},
+            {"role": "system", "content": "Summarize the introduction into three clear and concise paragraphs, focusing on key details."},
+            {"role": "user", "content": f"Summarize the following text in three concise paragraphs, highlighting the key aspects:\n\n{formatted_introduction}"}
+        ]
 
         summary_response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
@@ -306,7 +308,7 @@ def generate_introduction():
         app.logger.error(f"자기소개서 생성 중 오류 발생: {e}")
         traceback.print_exc()  # 추가된 오류 추적
         return jsonify({'error': f'자기소개서 생성 중 오류 발생: {e}'}), 500
-
+    
 
 @app.route('/get_introduction_summary', methods=['POST'])
 def get_introduction_summary():
@@ -590,7 +592,7 @@ def calculate_face_similarity():
         return jsonify({"error": "An internal error occurred", "details": str(e), "results": []}), 500
 
 
-# 이미지 캡션 분석(azure 사용)
+# 이미지 캡션 분석
 @app.route('/api/analyze-batch', methods=['POST'])
 def analyze_images_batch():
     if not db_connection:
@@ -603,7 +605,7 @@ def analyze_images_batch():
 
     user_id = data['userId']
     image_urls = data['imageUrls']
-    captions = {}
+    arr = []  # 캡션과 명사를 저장하는 리스트
 
     try:
         for url_info in image_urls:
@@ -631,33 +633,50 @@ def analyze_images_batch():
             except Exception as e:
                 raise Exception(f"Invalid image at URL: {url} - {e}")
 
+            # 이미지 캡션 생성 함수
             caption = generate_caption(image_stream)
-            nouns = extract_nouns(caption)
-            captions[url] = caption
-
+            # 명사 추출 함수
             nouns = extract_nouns(caption)
 
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            insert_query = """
-            INSERT INTO image_captions (user_id, image_url, caption, similarity_score, nouns)
-            VALUES (%s, %s, %s, NULL, %s)
-            ON DUPLICATE KEY UPDATE
-                image_url = VALUES(image_url),
-                caption = VALUES(caption),
-                similarity_score = VALUES(similarity_score),
-                nouns = VALUES(nouns)
-            """
+            # 캡션과 명사를 리스트에 저장
+            arr.append({
+                'caption': caption,
+                'nouns': nouns
+            })
 
-            db_cursor.execute(insert_query, (user_id, url, caption, nouns))
+        # 리스트를 JSON 문자열로 변환
+        json_data = json.dumps(arr)
 
+        # 데이터베이스에 저장
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        insert_query = """
+        INSERT INTO image_captions (user_id, image_url, caption)
+        VALUES (%s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            image_url = VALUES(image_url),
+            caption = VALUES(caption)
+        """
+        db_cursor.execute(insert_query, (user_id, url, json_data))
         db_connection.commit()
-        calculate_similarity_scores(user_id)
-        return jsonify({"captions": captions})
+        # calculate_similarity_scores(user_id)  # 이 부분은 필요에 따라 주석 해제
+        return jsonify({"captions": arr})  # arr을 반환하여 캡션과 명사 정보를 포함
     except Exception as error:
         db_connection.rollback()
         logger.error(f"Error analyzing images: {error}")
         traceback.print_exc()
         return jsonify({"error": "Failed to analyze images", "details": str(error)}), 500
+
+#캡션 유사도 분석 엔드포인트
+@app.route('/api/calculate-similarity', methods=['POST'])
+def calculate_similarity():
+    data = request.json
+    user_id = data.get('userId')
+
+    if not user_id:
+        return jsonify({"error": "Missing userId"}), 400
+
+    calculate_similarity_scores(user_id)
+    return jsonify({"message": "Similarity calculation completed."}), 200
 
 def calculate_similarity_scores(user_id):
     if not db_connection:
@@ -665,8 +684,18 @@ def calculate_similarity_scores(user_id):
         return
 
     try:
-        db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (user_id,))
-        new_user_nouns_list = [row[0] for row in db_cursor.fetchall() if row[0]]
+        logger.info(f"Calculating similarity for user_id: {user_id}")
+        db_cursor.execute("SELECT caption FROM image_captions WHERE user_id = %s", (user_id,))
+        result = db_cursor.fetchone()
+
+        if not result:
+            logger.error('No captions found for the user')
+            return
+
+        # captions에서 nouns를 추출
+        captions_data = json.loads(result['caption'])
+        new_user_nouns_list = [item['nouns'] for item in captions_data if 'nouns' in item]
+        logger.info(f"New user nouns list: {new_user_nouns_list}")
 
         if not new_user_nouns_list:
             logger.error('No nouns found for the user')
@@ -674,23 +703,34 @@ def calculate_similarity_scores(user_id):
 
         new_user_nouns = ' '.join(new_user_nouns_list)
         new_user_embedding = model.encode(new_user_nouns, convert_to_tensor=True)
+        logger.info(f"New user embedding: {new_user_embedding}")
 
-        db_cursor.execute("SELECT DISTINCT user_id FROM image_captions WHERE user_id != %s ORDER BY RAND() LIMIT 5", (user_id,))
-        other_user_ids = [row[0] for row in db_cursor.fetchall()]
+        db_cursor.execute("SELECT DISTINCT user_id FROM image_captions WHERE user_id != %s", (user_id,))
+        other_user_ids = [row['user_id'] for row in db_cursor.fetchall()]
+        logger.info(f"Other user IDs: {other_user_ids}")
 
         for other_user_id in other_user_ids:
-            db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (other_user_id,))
-            other_user_nouns_list = [row[0] for row in db_cursor.fetchall() if row[0]]
+            db_cursor.execute("SELECT caption FROM image_captions WHERE user_id = %s", (other_user_id,))
+            other_result = db_cursor.fetchone()
+
+            if not other_result:
+                continue
+
+            # other_user의 captions에서 nouns를 추출
+            other_captions_data = json.loads(other_result['caption'])
+            other_user_nouns_list = [item['nouns'] for item in other_captions_data if 'nouns' in item]
+            logger.info(f"Other user nouns list for user {other_user_id}: {other_user_nouns_list}")
 
             if not other_user_nouns_list:
                 continue
 
             other_user_nouns = ' '.join(other_user_nouns_list)
             other_user_embedding = model.encode(other_user_nouns, convert_to_tensor=True)
+            logger.info(f"Other user embedding for user {other_user_id}: {other_user_embedding}")
 
-
-            similarity = util.pytorch_cos_sim(new_user_embedding, other_user_embedding).item()      #cos 사용해서 캡션 명사 간의 유사도 계산
-
+            similarity = util.pytorch_cos_sim(new_user_embedding, other_user_embedding).item()  # 코사인 유사도 계산
+            logger.info(f"User {user_id} and User {other_user_id} similarity: {similarity}")
+            
             insert_similarity_query = """
             INSERT INTO UserCaptionSimilarity (user_id1, user_id2, similarity_score)
             VALUES (%s, %s, %s)
@@ -703,10 +743,6 @@ def calculate_similarity_scores(user_id):
         db_connection.rollback()
         logger.error(f"Error calculating similarity: {error}")
         traceback.print_exc()
-
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 
 #얼굴 탐지 true/false 반환 엔드포인트
 @app.route('/detect-faces', methods=['POST'])

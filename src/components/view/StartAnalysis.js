@@ -38,7 +38,14 @@ const StartAnalysis = () => {
             'Content-Type': 'application/json',
           },
         });
-
+        // calculate_similarity 호출을 response 이후로 이동
+        const similarity_res = await axios.post(`${flaskUrl}/api/calculate-similarity`, {
+          userId: userId,
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        });
         console.log('Captions received and saved:', response.data.captions);
         setLoadingText('첫 번째 분석이 완료되었어요! 좀 더 자세한 분석으로 넘어가볼까요?');
         

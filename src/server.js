@@ -1,5 +1,5 @@
-require('dotenv').config();
-//require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env'}); //슬희꺼
+//require('dotenv').config();
+require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env'}); //슬희꺼
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');

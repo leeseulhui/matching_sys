@@ -436,24 +436,26 @@ app.get('/chatname/:userId', async (req, res) => {
 
 app.get('/chat/messages/:matchingID', async (req, res) => {
   const matchingID = req.params.matchingID;
-
+  console.log("---------------------------------------");
+  console.log(matchingID);
   try {
-      const query = 'SELECT * FROM Messages WHERE MatchingID = ? ORDER BY SentDate ASC';
-      const [messages] = await connection.query(query, [matchingID]);
+    const query = 'SELECT * FROM Messages WHERE MatchingID = ? ORDER BY SentDate ASC';
+    const [messages] = await connection.query(query, [matchingID]);
 
-      // 콘솔에 메시지 내용 출력
-      console.log("Retrieved messages:", messages);
+    console.log("Retrieved messages:", messages);
 
-      if (messages.length > 0) {
-          res.status(200).json({ messages });
-      } else {
-          res.status(404).json({ message: 'No messages found for this matching ID.' });
-      }
+    if (messages.length > 0) {
+      res.status(200).json({ messages });
+    } else {
+      res.status(404).json({ message: 'No messages found for this matching ID.' });
+    }
   } catch (error) {
-      console.error('Failed to retrieve messages:', error);
-      res.status(500).json({ message: 'Failed to retrieve messages due to server error.', error });
+    console.error('Failed to retrieve messages:', error);
+    res.status(500).json({ message: 'Failed to retrieve messages due to server error.', error });
   }
 });
+
+
 
 
 
@@ -744,7 +746,6 @@ app.post('/api/store-similarity', async (req, res) => {
 
 
 
-const query = util.promisify(connection.query).bind(connection);
 
 // 유사도 데이터를 가져오는 API 엔드포인트
 app.get('/similarity/:userId/:randomUserIds', async (req, res) => {
@@ -755,48 +756,115 @@ app.get('/similarity/:userId/:randomUserIds', async (req, res) => {
   console.log(`Request received for userId: ${userId} with randomUserIds: ${randomUserIds}`);
 
   const queries = [
-    `SELECT similarity FROM DatingProfileSimilarity WHERE user_id_1 = ? AND user_id_2 IN (${userIdsString})`,
-    `SELECT similarity_score FROM UserCaptionSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
-    `SELECT similarity_score FROM UserFaceSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
-    `SELECT idealsimilarity_score FROM UserIdealSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
-    `SELECT similarity_score FROM UserSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`
+    `SELECT similarity FROM DatingProfileSimilarity WHERE (user_id_1 = ? AND user_id_2 IN (${userIdsString})) OR (user_id_2 = ? AND user_id_1 IN (${userIdsString}))`,
+    `SELECT similarity_score FROM UserCaptionSimilarity WHERE (user_id1 = ? AND user_id2 IN (${userIdsString})) OR (user_id2 = ? AND user_id1 IN (${userIdsString}))`,
+    `SELECT similarity_score FROM UserFaceSimilarity WHERE (user_id1 = ? AND user_id2 IN (${userIdsString})) OR (user_id2 = ? AND user_id1 IN (${userIdsString}))`,
+    `SELECT idealsimilarity_score FROM UserIdealSimilarity WHERE (user_id1 = ? AND user_id2 IN (${userIdsString})) OR (user_id2 = ? AND user_id1 IN (${userIdsString}))`,
+    `SELECT similarity_score FROM UserSimilarity WHERE (user_id1 = ? AND user_id2 IN (${userIdsString})) OR (user_id2 = ? AND user_id1 IN (${userIdsString}))`
   ];
+
+  const userQueries = `
+    SELECT 
+      u.User_id, u.Username, YEAR(CURDATE()) - YEAR(u.Birthdate) AS Age, u.User_profile_image,
+      u.Religion, u.MBTI, u.Interests, u.Attractions,
+      i.Religion as IdealReligion, i.Personality as IdealPersonality, i.Interests as IdealInterests, i.AttractionActions as IdealAttractionActions, i.Age as IdealAge,
+      s.Title, s.Content
+    FROM Users u
+    LEFT JOIN IdealTypes i ON u.User_id = i.UserID
+    LEFT JOIN SelfIntroductions s ON u.User_id = s.User_id
+    WHERE u.User_id IN (${userIdsString});
+  `;
 
   try {
     const results = await Promise.all(queries.map(async (q) => {
       console.log(`Executing query: ${q} with userId: ${userId}`);
-      const [result] = await connection.query(q, [userId]);
+      const [result] = await connection.query(q, [userId, userId]);
       console.log(`Query result for query "${q}": ${JSON.stringify(result)}`);
       return result;
     }));
+
+    const [userDetails] = await connection.query(userQueries);
+
     console.log('All queries successful with results:', JSON.stringify(results));
     res.json({
       datingProfileSimilarity: results[0].map(row => row.similarity),
       userCaptionSimilarity: results[1].map(row => row.similarity_score),
       userFaceSimilarity: results[2].map(row => row.similarity_score),
       userIdealSimilarity: results[3].map(row => row.idealsimilarity_score),
-      userSimilarity: results[4].map(row => row.similarity_score)
+      userSimilarity: results[4].map(row => row.similarity_score),
+      userDetails
     });
   } catch (err) {
     console.error(`Promise failed with error: ${err}`);
     res.status(500).json({ error: err.message });
   }
 });
+
+
+
 //매칭테이블 생성
-app.post('/match', (req, res) => {
+app.post('/match', async (req, res) => {
   const { user1ID, user2ID } = req.body;
 
+  console.log('Received match request:', user1ID, user2ID);
+
   if (!user1ID || !user2ID) {
+    console.log('Missing user IDs');
     return res.status(400).send('user1ID와 user2ID가 필요합니다.');
   }
 
+  if (user1ID === user2ID) {
+    console.log('Matching with the same user ID is not allowed');
+    return res.status(400).send('동일한 유저끼리는 매칭할 수 없습니다.');
+  }
+
   const query = `INSERT INTO Matching (User1ID, User2ID) VALUES (?, ?)`;
-  connection.query(query, [user1ID, user2ID], (err, result) => {
-    if (err) {
-      console.error('매칭 데이터베이스 삽입 오류:', err);
-      return res.status(500).send('매칭 오류가 발생했습니다.');
-    }
+  console.log('Executing query:', query, [user1ID, user2ID]);
+
+  try {
+    const [result] = await connection.query(query, [user1ID, user2ID]);
+    console.log('매칭 성공:', result.insertId);
     res.status(201).send({ message: '매칭 성공', matchingID: result.insertId });
-  });
+  } catch (error) {
+    console.error('매칭 데이터베이스 삽입 오류:', error);
+    res.status(500).send('매칭 오류가 발생했습니다.');
+  }
 });
+
+
+
+
+// 사용자의 원트소개서 내용을 가져오는 엔드포인트
+app.post('/getUserContent', async (req, res) => {
+  const { userId } = req.body;
+  const query = 'SELECT Summary FROM SelfIntroductions WHERE User_id = ?';
+
+  try {
+    const [rows] = await connection.query(query, [userId]);
+    if (rows.length > 0) {
+      res.status(200).json({ content: rows[0].Summary });
+    } else {
+      res.status(404).json({ error: '해당 사용자 ID에 대한 내용을 찾을 수 없습니다.' });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: '사용자 내용을 가져오는 중 오류 발생' });
+  }
+});
+// 사용자의 원트소개서 이미지를 저장하는 엔드 포인트
+app.post('/profile/saveimage', async (req, res) => {
+  const { userId, imageUrl } = req.body; // 변수명을 일관되게 수정
+  const query = 'UPDATE SelfIntroductions SET SelfIntroductionsURL = ? WHERE User_id = ?';
+
+  try {
+    const results = await connection.query(query, [imageUrl, userId]);
+    console.log('Database update results:', results); // 쿼리 실행 결과 로그
+    return res.status(200).json({ message: 'SelfIntroductions imageUrl add success!!' });
+  } catch (e) {
+    console.error('Error executing query:', e);
+    res.status(500).json({ error: 'SelfIntroductionsURL set failed' });
+  }
+});
+
+
 server.listen(port, () => console.log(`Server is running on port ${port}`));

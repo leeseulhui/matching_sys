@@ -74,7 +74,7 @@ const MainScreen = () => {
         navigation.navigate('인스타그램피드');
         break;
       case 'Chat':  
-      navigation.navigate('채팅', { matchingID: '7506894859370827' });  // Pass the matchingID here
+      navigation.navigate('채팅', { matchingID: '71' });  // Pass the matchingID here
         break;
       default:
         console.log('No screen associated');

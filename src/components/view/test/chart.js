@@ -1,19 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Dimensions, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, Dimensions, Text, ScrollView, ActivityIndicator, TouchableOpacity, Alert, Image } from 'react-native';
 import { Skia, Canvas, Paint, Path, PaintStyle } from "@shopify/react-native-skia";
-import { useRoute } from '@react-navigation/native';
+import { useRoute, useNavigation } from '@react-navigation/native';
+import Modal from 'react-native-modal';
+import { nodeUrl } from '../../../deviceSet'; // Flask 요청 url
 
 const RadarChart = () => {
   const route = useRoute();
+  const navigation = useNavigation();
   const { userId, randomUserIds } = route.params;
-  const [data, setData] = useState([]);
+  const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [isModalVisible, setModalVisible] = useState(false);
+  const [selectedUserIndex, setSelectedUserIndex] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         console.log(`Fetching data for userId: ${userId} with randomUserIds: ${randomUserIds}`);
-        const response = await fetch(`http://10.0.2.2:8080/similarity/${userId}/${randomUserIds.join(',')}`);
+        const response = await fetch(`${nodeUrl}/similarity/${userId}/${randomUserIds.join(',')}`);
         if (!response.ok) {
           throw new Error('Network response was not ok');
         }
@@ -37,10 +42,10 @@ const RadarChart = () => {
   }, [userId, randomUserIds]);
 
   const labels = ["프로필", "캡션", "얼굴", "이상형", "해시"];
-  const radius = 150;
+  const radius = 50; // 반지름을 줄임
   const gridSteps = 5;
   const { width } = Dimensions.get('window');
-  const center = { x: width / 2, y: 200 };
+  const center = { x: 100, y: 100 }; // 중앙을 모달의 가운데로 조정
 
   const angle = (2 * Math.PI) / labels.length;
 
@@ -92,16 +97,33 @@ const RadarChart = () => {
     }
 
     return (
-      <Canvas style={styles.canvas}>
-        <Path path={gridPath} paint={gridPaint} />
-        <Path path={path} paint={paint} />
-      </Canvas>
+      <View style={styles.canvasContainer}>
+        <Canvas style={styles.canvas}>
+          <Path path={gridPath} paint={gridPaint} />
+          <Path path={path} paint={paint} />
+        </Canvas>
+        {labels.map((label, labelIndex) => {
+          const x = center.x + (radius + 20) * Math.cos(angle * labelIndex - Math.PI / 2);
+          const y = center.y + (radius + 20) * Math.sin(angle * labelIndex - Math.PI / 2);
+          return (
+            <Text
+              key={labelIndex}
+              style={[
+                styles.label,
+                { left: x - 20, top: y - 10 }
+              ]}
+            >
+              {label}
+            </Text>
+          );
+        })}
+      </View>
     );
   };
 
   const handleMatch = async (randomUserId) => {
     try {
-      const response = await fetch(`http://10.0.2.2:8080/match`, {
+      const response = await fetch(`${nodeUrl}/match`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -119,11 +141,32 @@ const RadarChart = () => {
       const result = await response.json();
       console.log('Match result:', result);
 
-      Alert.alert('매칭 성공', `User ${userId}와 User ${randomUserId}가 매칭되었습니다.`);
+      Alert.alert(
+        '매칭 성공',
+        `User ${userId}와 User ${randomUserId}가 매칭되었습니다.`,
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              console.log('Navigating to Chat screen with matchingID:', result.matchingID);
+              navigation.navigate('채팅', {
+                matchingID: result.matchingID,
+                userId: userId,
+                matchedUserId: randomUserId,
+              });
+            },
+          }
+        ]
+      );
     } catch (error) {
       console.error('Match error:', error);
       Alert.alert('매칭 실패', '매칭 중 오류가 발생했습니다.');
     }
+  };
+
+  const toggleModal = (index) => {
+    setSelectedUserIndex(index);
+    setModalVisible(!isModalVisible);
   };
 
   if (loading) {
@@ -138,47 +181,66 @@ const RadarChart = () => {
   return (
     <ScrollView contentContainerStyle={styles.scrollViewContainer}>
       {randomUserIds.map((randomUserId, index) => (
-        <TouchableOpacity key={index} style={styles.chartContainer} onPress={() => handleMatch(randomUserId)}>
-          <Text style={styles.title}>{`User: ${userId} vs Random User: ${randomUserId}`}</Text>
-          <View style={styles.canvasContainer}>
-            {drawRadarChart([
-              data.datingProfileSimilarity ? data.datingProfileSimilarity[index] : 0,
-              data.userCaptionSimilarity ? data.userCaptionSimilarity[index] : 0,
-              data.userFaceSimilarity ? data.userFaceSimilarity[index] : 0,
-              data.userIdealSimilarity ? data.userIdealSimilarity[index] : 0,
-              data.userSimilarity ? data.userSimilarity[index] : 0,
-            ])}
-            {labels.map((label, labelIndex) => (
-              <View key={labelIndex} style={[styles.label, {
-                left: center.x + (radius + 20) * Math.cos(angle * labelIndex - Math.PI / 2) - 20,
-                top: center.y + (radius + 20) * Math.sin(angle * labelIndex - Math.PI / 2) - 10,
-              }]}>
-                <Text>{label}</Text>
-              </View>
-            ))}
+        <TouchableOpacity key={index} style={styles.card} onPress={() => toggleModal(index)}>
+          <View style={styles.cardLeft}>
+            <Image
+              source={{ uri: data.userDetails && data.userDetails[index] && data.userDetails[index].User_profile_image }}
+              style={styles.profileImageCard}
+            />
+            <Text style={styles.userNameCard}>{data.userDetails && data.userDetails[index] && data.userDetails[index].Username}</Text>
+            <Text style={styles.userAgeCard}>{data.userDetails && data.userDetails[index] && data.userDetails[index].Age} years old</Text>
           </View>
-          <View style={styles.dataContainer}>
-            <Text style={styles.dataText}>
-              {`User: ${userId} vs Random User: ${randomUserId}`}
-            </Text>
-            <Text style={styles.dataText}>
-              Dating Profile Similarity: {data.datingProfileSimilarity ? data.datingProfileSimilarity[index] : 'N/A'}
-            </Text>
-            <Text style={styles.dataText}>
-              User Caption Similarity: {data.userCaptionSimilarity ? data.userCaptionSimilarity[index] : 'N/A'}
-            </Text>
-            <Text style={styles.dataText}>
-              User Face Similarity: {data.userFaceSimilarity ? data.userFaceSimilarity[index] : 'N/A'}
-            </Text>
-            <Text style={styles.dataText}>
-              User Ideal Similarity: {data.userIdealSimilarity ? data.userIdealSimilarity[index] : 'N/A'}
-            </Text>
-            <Text style={styles.dataText}>
-              User Similarity: {data.userSimilarity ? data.userSimilarity[index] : 'N/A'}
-            </Text>
+          <View style={styles.cardRight}>
+            <Text style={styles.userDetailText}>종교: {data.userDetails && data.userDetails[index] && data.userDetails[index].Religion}</Text>
+            <Text style={styles.userDetailText}>성격: {data.userDetails && data.userDetails[index] && data.userDetails[index].MBTI}</Text>
+            <Text style={styles.userDetailText}>관심사: {data.userDetails && data.userDetails[index] && data.userDetails[index].Interests}</Text>
+            <Text style={styles.userDetailText}>매력을 느끼는 행동: {data.userDetails && data.userDetails[index] && data.userDetails[index].Attractions}</Text>
           </View>
         </TouchableOpacity>
       ))}
+
+      <Modal 
+        isVisible={isModalVisible} 
+        onBackdropPress={() => setModalVisible(false)} 
+        style={styles.modal} 
+        backdropOpacity={1} // 백드롭 불투명도 설정
+      >
+        <View style={styles.modalContainer}>
+          <ScrollView contentContainerStyle={styles.modalScrollView}>
+            {selectedUserIndex !== null && data.userDetails && data.userDetails[selectedUserIndex] && (
+              <>
+                <View style={styles.userDetails}>
+                  <Image
+                    source={{ uri: data.userDetails[selectedUserIndex].User_profile_image }}
+                    style={styles.profileImage}
+                  />
+                  <Text style={styles.userName}>{data.userDetails[selectedUserIndex].Username}</Text>
+                  <Text style={styles.userAge}>{data.userDetails[selectedUserIndex].Age} years old</Text>
+                  <Text style={styles.userIntro}>{data.userDetails[selectedUserIndex].Content}</Text>
+                </View>
+                <View style={styles.idealDetails}>
+                  <Text style={styles.idealTitle}>이상형 정보</Text>
+                  <Text style={styles.idealText}>종교: {data.userDetails[selectedUserIndex].IdealReligion}</Text>
+                  <Text style={styles.idealText}>성격: {data.userDetails[selectedUserIndex].IdealPersonality}</Text>
+                  <Text style={styles.idealText}>관심사: {data.userDetails[selectedUserIndex].IdealInterests}</Text>
+                  <Text style={styles.idealText}>매력을 느끼는 행동: {data.userDetails[selectedUserIndex].IdealAttractionActions}</Text>
+                  <Text style={styles.idealText}>선호 연령대: {data.userDetails[selectedUserIndex].IdealAge}</Text>
+                </View>
+                {drawRadarChart([
+                  data.datingProfileSimilarity ? data.datingProfileSimilarity[selectedUserIndex] : 0,
+                  data.userCaptionSimilarity ? data.userCaptionSimilarity[selectedUserIndex] : 0,
+                  data.userFaceSimilarity ? data.userFaceSimilarity[selectedUserIndex] : 0,
+                  data.userIdealSimilarity ? data.userIdealSimilarity[selectedUserIndex] : 0,
+                  data.userSimilarity ? data.userSimilarity[selectedUserIndex] : 0,
+                ])}
+                <TouchableOpacity style={styles.matchButton} onPress={() => handleMatch(randomUserIds[selectedUserIndex])}>
+                  <Text style={styles.matchButtonText}>매칭하기</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -193,25 +255,57 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 20,
   },
-  chartContainer: {
+  card: {
     position: 'relative',
     marginBottom: 40,
+    padding: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    flexDirection: 'row', // Row direction
+    width: '90%',
+  },
+  cardLeft: {
     alignItems: 'center',
+    marginRight: 20,
+  },
+  cardRight: {
+    flex: 1,
+  },
+  profileImageCard: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    marginBottom: 10,
+  },
+  userNameCard: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  userAgeCard: {
+    fontSize: 14,
+    color: 'gray',
+  },
+  userDetailText: {
+    fontSize: 12,
+    marginBottom: 5,
   },
   canvasContainer: {
     position: 'relative',
-    width: Dimensions.get('window').width,
+    width: 200, // 너비를 줄임
+    height: 200, // 높이를 줄임
     alignItems: 'center',
     justifyContent: 'center',
   },
   canvas: {
-    width: Dimensions.get('window').width,
-    height: 400,
+    width: 200, // 너비를 줄임
+    height: 200, // 높이를 줄임
   },
   label: {
     position: 'absolute',
-    width: 40,
-    height: 20,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -230,6 +324,73 @@ const styles = StyleSheet.create({
   dataText: {
     fontSize: 12,
     marginBottom: 5,
+  },
+  modal: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalScrollView: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    padding: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    width: Dimensions.get('window').width * 0.9,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  userDetails: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  profileImage: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: 10,
+  },
+  userName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  userAge: {
+    fontSize: 14,
+    color: 'gray',
+  },
+  userIntro: {
+    fontSize: 14,
+    textAlign: 'center',
+    marginHorizontal: 20,
+    marginTop: 10,
+  },
+  idealDetails: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  idealTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
+  idealText: {
+    fontSize: 14,
+    marginBottom: 5,
+  },
+  matchButton: {
+    marginTop: 20,
+    backgroundColor: '#FF6C3D',
+    padding: 10,
+    borderRadius: 5,
+  },
+  matchButtonText: {
+    color: 'white',
+    fontWeight: 'bold',
   },
 });
 

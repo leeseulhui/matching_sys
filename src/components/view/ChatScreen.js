@@ -1,29 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
-
+import { nodeUrl } from '../../deviceSet';
 const ChatScreen = ({ route }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
-  const baseURL = 'https://owonet.store';
-  const { matchingID } = route.params;
+  const { matchingID, userId, matchedUserId } = route.params;
   const [ws, setWs] = useState(null);
+  const baseURL = 'https://owonet.store';
+
 
   useEffect(() => {
-    const websocket = new WebSocket('wss://owonet.store/chat/messages/ws');  // 서버의 WebSocket URL
+    const websocket = new WebSocket('wss://owonet.store/chat/messages/ws');
     setWs(websocket);
 
     websocket.onopen = () => {
-      // 웹소켓 연결이 성공적으로 열리면 실행
       console.log('WebSocket Connected');
-      websocket.send(JSON.stringify({ type: 'join', matchingID: matchingID }));  // 서버에 'join' 메시지 전송
+      websocket.send(JSON.stringify({ type: 'join', matchingID }));
     };
 
     websocket.onmessage = (e) => {
-      // 서버로부터 메시지를 수신하면 실행
       const message = JSON.parse(e.data);
       if (message.MatchingID === matchingID) {
         setMessages(prevMessages => {
-          // 기존 메시지 목록에 동일한 ID를 가진 메시지가 있는지 확인
           if (!prevMessages.some(msg => msg.MessageID === message.MessageID)) {
             return [...prevMessages, message];
           }
@@ -33,19 +31,17 @@ const ChatScreen = ({ route }) => {
     };
 
     websocket.onerror = (e) => {
-      // 오류 처리
       console.error('WebSocket Error: ', e.message);
       console.error('WebSocket Error Event: ', e);
     };
 
     websocket.onclose = (e) => {
-      // 연결이 종료되면 실행
       console.log(`WebSocket Disconnected: Reason: ${e.reason}, Code: ${e.code}, Clean: ${e.wasClean}`);
       console.log('WebSocket Close Event: ', e);
     };
 
     return () => {
-      websocket.close();  // 컴포넌트가 언마운트될 때 웹소켓 연결 종료
+      websocket.close();
     };
   }, []);
 
@@ -55,7 +51,8 @@ const ChatScreen = ({ route }) => {
 
   const fetchMessages = async () => {
     try {
-      const response = await fetch(`http://10.0.2.2:8080/chat/messages/${matchingID}`, {
+      console.log(matchingID);
+      const response = await fetch(`${nodeUrl}/chat/messages/${matchingID}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -74,9 +71,9 @@ const ChatScreen = ({ route }) => {
   };
 
   const sendMessage = async () => {
-    if (inputMessage.trim() === '') return; // 입력된 메시지가 비어있는지 검사
+    if (inputMessage.trim() === '') return;
+
     try {
-      // 서버에 POST 요청을 보냄
       const response = await fetch(`${baseURL}/chat/messages`, {
         method: 'POST',
         headers: {
@@ -84,20 +81,18 @@ const ChatScreen = ({ route }) => {
         },
         body: JSON.stringify({
           matchingID,
-          senderID: '7506894859370827',
-          receiverID: '7389320737824274',
+          senderID: userId,
+          receiverID: matchedUserId,
           messageContent: inputMessage,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message'); // 요청 실패 시 예외 발생
+        throw new Error('Failed to send message');
       }
 
-      // 서버로부터 받은 응답을 JSON 형태로 변환
       const newMessage = await response.json();
 
-      // 새 메시지를 기존 메시지 목록에 추가하기 전에 중복 확인
       setMessages(previousMessages => {
         if (!previousMessages.some(msg => msg.MessageID === newMessage.MessageID)) {
           return [...previousMessages, newMessage];
@@ -105,18 +100,16 @@ const ChatScreen = ({ route }) => {
         return previousMessages;
       });
 
-      // 입력 필드 초기화
       setInputMessage('');
     } catch (error) {
-      console.error('Error sending message:', error); // 오류 처리
+      console.error('Error sending message:', error);
     }
   };
 
   const renderItem = ({ item }) => (
-    <View style={styles.messageContainer}>
-      <Text style={styles.sender}>Sender: {item.SenderID}</Text>
-      <Text style={styles.message}>Message: {item.MessageContent}</Text>
-      <Text style={styles.timestamp}>Sent: {new Date(item.SentDate).toLocaleString()}</Text>
+    <View style={[styles.messageContainer, item.SenderID === userId ? styles.myMessage : styles.theirMessage]}>
+      <Text style={styles.message}>{item.MessageContent}</Text>
+      <Text style={styles.timestamp}>{new Date(item.SentDate).toLocaleString()}</Text>
     </View>
   );
 
@@ -126,6 +119,7 @@ const ChatScreen = ({ route }) => {
         data={messages}
         renderItem={renderItem}
         keyExtractor={(item, index) => item.MessageID ? item.MessageID.toString() : `unique-${index}`}
+        contentContainerStyle={styles.messageList}
       />
       <View style={styles.inputContainer}>
         <TextInput
@@ -175,13 +169,23 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  messageList: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
   messageContainer: {
     paddingHorizontal: 10,
     paddingVertical: 5,
+    borderRadius: 10,
+    marginVertical: 5,
   },
-  sender: {
-    fontWeight: 'bold',
-    marginBottom: 2,
+  myMessage: {
+    backgroundColor: '#DCF8C6',
+    alignSelf: 'flex-end',
+  },
+  theirMessage: {
+    backgroundColor: '#ECECEC',
+    alignSelf: 'flex-start',
   },
   message: {
     fontSize: 16,
@@ -189,6 +193,8 @@ const styles = StyleSheet.create({
   timestamp: {
     fontSize: 12,
     color: '#999999',
+    textAlign: 'right',
+    marginTop: 5,
   },
 });
 

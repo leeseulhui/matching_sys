@@ -553,7 +553,6 @@ def analyze_colors():
     }), 200
 
 
-#얼굴 유사도
 @app.route('/face-similarity', methods=['POST'])
 def calculate_face_similarity():
     try:
@@ -627,6 +626,7 @@ def analyze_images_batch():
                 raise Exception(f"Invalid image at URL: {url} - {e}")
 
             caption = generate_caption(image_stream)
+            nouns = extract_nouns(caption)
             captions[url] = caption
 
             nouns = extract_nouns(caption)

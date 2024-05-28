@@ -1,4 +1,5 @@
 require('dotenv').config();
+//require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env'}); //슬희꺼
 const express = require('express');
 const bodyParser = require('body-parser');
 const mysql = require('mysql2/promise');
@@ -720,7 +721,7 @@ app.post('/api/store-similarity', async (req, res) => {
   }
 });
 
-//얼굴분석이 끝난 유사도를 정장해주는 쿼리
+//얼굴분석이 끝난 유사도를 정장해 주는 쿼리
 app.post('/api/store-similarity', async (req, res) => {
   const { user_id1, user_id2, similarity_score } = req.body;
   const query = `

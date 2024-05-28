@@ -9,8 +9,6 @@ const ProfileSuccess = () => {
     navigation.navigate('이상형타입');
   };
   
-
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>원트소개서가 마음에 드신다니 다행이에요 😃</Text>

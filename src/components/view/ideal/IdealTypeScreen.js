@@ -124,7 +124,7 @@ const IdealType = () => {
         ...options
       });
       console.log('Response from server:', response.data);
-      navigation.navigate('메인화면');
+      navigation.navigate('소개서완성본');
     } catch (error) {
       console.error('Error saving ideal type:', error.response ? error.response.data : error);
     }

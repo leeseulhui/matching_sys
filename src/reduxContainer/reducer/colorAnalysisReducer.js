@@ -2,7 +2,9 @@ const colorMood={
     User_id:'',
     average_color:'',
     mood_image:[],
-    mood_symbol:[]
+    mood_symbol:[],
+    imageUrl:'',
+    opacity:1
 }
 
 export const colorAnalysisData =(state=colorMood, action) =>{
@@ -14,6 +16,11 @@ export const colorAnalysisData =(state=colorMood, action) =>{
                 average_color:action.average_color,
                 mood_image:action.mood_image,
                 mood_symbol:action.mood_symbol
+            }
+        case 'select_image_url':
+            return {
+                ...state,
+                imageUrl:action.imageUrl
             }
         default:
             return state;

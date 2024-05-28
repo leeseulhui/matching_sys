@@ -7,3 +7,15 @@ export const add_color_analysis =(userId, rgb, mood, symbol)=>{
         mood_symbol:symbol
     }
 }
+export const select_image_url =(url)=>{
+    return {
+        type :"select_image_url",
+        imageUrl:url
+    }
+}
+
+// export const adjust_opacity(opacity){
+//     return {
+//         type
+//     }
+// }

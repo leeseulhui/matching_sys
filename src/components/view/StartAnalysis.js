@@ -6,7 +6,7 @@ import axios from 'axios';
 import { fetchInstagramMedia } from '../fetchInstagramPosts';
 import { TouchableOpacity } from 'react-native-gesture-handler';
 import LinearGradient from 'react-native-linear-gradient';
-
+import { flaskUrl } from '../../deviceSet';
 const StartAnalysis = () => {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,7 @@ const StartAnalysis = () => {
           media_type: item.media_type
         }));
         
-        const response = await axios.post('http://10.0.2.2:6000/api/analyze-batch', {
+        const response = await axios.post(`${flaskUrl}/api/analyze-batch`, {
           userId: userId,
           imageUrls: imageUrls
         }, {

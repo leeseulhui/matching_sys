@@ -64,8 +64,8 @@ function handle_rebooted_user_data(jsonData){
 
 //일단 메인페이지로 넘어가는 코드추가해놓음
 const gotoMain=()=>{
-  // navigation.navigate("인스타그램분석");
-  navigation.navigate("메인화면");
+   navigation.navigate("얼굴인식");
+  //navigation.navigate("메인화면");
 }
 
 

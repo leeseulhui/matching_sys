@@ -721,7 +721,7 @@ app.post('/api/store-similarity', async (req, res) => {
   }
 });
 
-//얼굴분석이 끝난 유사도를 정장해주는 쿼리
+//얼굴분석이 끝난 유사도를 정장해 주는 쿼리
 app.post('/api/store-similarity', async (req, res) => {
   const { user_id1, user_id2, similarity_score } = req.body;
   const query = `
@@ -740,11 +740,37 @@ app.post('/api/store-similarity', async (req, res) => {
     res.status(500).json({ error: 'Error storing similarity score' });
   }
 });
-//사용자의 데이팅 소개서 내용을 가져오는 엔드포인트
-// app.post('/getUserContent', async(req, res)=>{
-//   const {userId} =req.body;
-//   const
-// })
+// 사용자의 원트소개서 내용을 가져오는 엔드포인트
+app.post('/getUserContent', async (req, res) => {
+  const { userId } = req.body;
+  const query = 'SELECT Summary FROM SelfIntroductions WHERE User_id = ?';
+
+  try {
+    const [rows] = await connection.query(query, [userId]);
+    if (rows.length > 0) {
+      res.status(200).json({ content: rows[0].Summary });
+    } else {
+      res.status(404).json({ error: '해당 사용자 ID에 대한 내용을 찾을 수 없습니다.' });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: '사용자 내용을 가져오는 중 오류 발생' });
+  }
+});
+// 사용자의 원트소개서 이미지를 저장하는 엔드 포인트
+app.post('/profile/saveimage', async (req, res) => {
+  const { userId, imageUrl } = req.body; // 변수명을 일관되게 수정
+  const query = 'UPDATE SelfIntroductions SET SelfIntroductionsURL = ? WHERE User_id = ?';
+
+  try {
+    const results = await connection.query(query, [imageUrl, userId]);
+    console.log('Database update results:', results); // 쿼리 실행 결과 로그
+    return res.status(200).json({ message: 'SelfIntroductions imageUrl add success!!' });
+  } catch (e) {
+    console.error('Error executing query:', e);
+    res.status(500).json({ error: 'SelfIntroductionsURL set failed' });
+  }
+});
 
 
 server.listen(port, () => console.log(`Server is running on port ${port}`));

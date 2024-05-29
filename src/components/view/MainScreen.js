@@ -4,6 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ScrollView 
 import { useNavigation } from '@react-navigation/native';
 import { image,icons } from '../../../assets/image'
 import axios from 'axios';
+import { useSelector } from 'react-redux';
 
 const home_tabs = [
   { name: "Test", screenKey: "나의 연애지식", icon: icons.test },
@@ -25,11 +26,9 @@ const MainScreen = () => {
   const [activeScreen, setActiveScreen] = useState(null);
   const [username, setUsername] = useState("Loading...");
   const [similarProfiles, setSimilarProfiles] = useState([]);
-
-  useEffect(() => {
-    const userId = '7506894859370827'; 
+  const userId = useSelector((state)=>state.instaUserData.User_id)
+  useEffect(() => { 
     fetchUsername(userId);
-    // fetchSimilarProfiles();
   }, []);
 
 

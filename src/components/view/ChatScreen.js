@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import { nodeUrl } from '../../deviceSet';
+
 const ChatScreen = ({ route }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const { matchingID, userId, matchedUserId } = route.params;
   const [ws, setWs] = useState(null);
   const baseURL = 'https://owonet.store';
-
 
   useEffect(() => {
     const websocket = new WebSocket('wss://owonet.store/chat/messages/ws');
@@ -58,17 +58,23 @@ const ChatScreen = ({ route }) => {
           'Content-Type': 'application/json',
         }
       });
-
+  
       if (!response.ok) {
-        throw new Error('Failed to fetch messages');
+        if (response.status === 404) {
+          setMessages([]); // 메시지가 없을 경우 빈 배열로 설정
+        } else {
+          throw new Error('Failed to fetch messages');
+        }
+      } else {
+        const data = await response.json();
+        setMessages(data.messages);
       }
-
-      const data = await response.json();
-      setMessages(data.messages);
     } catch (error) {
       console.error('Error fetching messages:', error);
+      Alert.alert('Error', 'Failed to fetch messages');
     }
   };
+  
 
   const sendMessage = async () => {
     if (inputMessage.trim() === '') return;
@@ -103,6 +109,7 @@ const ChatScreen = ({ route }) => {
       setInputMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
+      Alert.alert('Error', 'Failed to send message');
     }
   };
 

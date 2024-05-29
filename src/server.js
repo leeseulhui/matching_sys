@@ -444,16 +444,13 @@ app.get('/chat/messages/:matchingID', async (req, res) => {
 
     console.log("Retrieved messages:", messages);
 
-    if (messages.length > 0) {
-      res.status(200).json({ messages });
-    } else {
-      res.status(404).json({ message: 'No messages found for this matching ID.' });
-    }
+    res.status(200).json({ messages });
   } catch (error) {
     console.error('Failed to retrieve messages:', error);
     res.status(500).json({ message: 'Failed to retrieve messages due to server error.', error });
   }
 });
+
 
 
 

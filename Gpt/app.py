@@ -11,7 +11,7 @@ import re
 
 #이미지 캡션 라이브러리
 from azure_service import generate_caption, extract_nouns
-
+import json
 #자기소개서 유사도분석 라이브러리
 from sentence_transformers import SentenceTransformer, util
 
@@ -583,8 +583,7 @@ def calculate_face_similarity():
         traceback.print_exc()
         return jsonify({"error": "An internal error occurred", "details": str(e), "results": []}), 500
 
-
-#이미지 캡션 분석(azure 사용)
+# 이미지 캡션 분석
 @app.route('/api/analyze-batch', methods=['POST'])
 def analyze_images_batch():
     if not db_connection:
@@ -597,7 +596,8 @@ def analyze_images_batch():
 
     user_id = data['userId']
     image_urls = data['imageUrls']
-    captions = {}
+    arr = []  # 캡션과 명사를 저장하는 리스트
+    all_nouns = []  # 모든 명사를 저장하는 리스트
 
     try:
         for url_info in image_urls:
@@ -625,50 +625,84 @@ def analyze_images_batch():
             except Exception as e:
                 raise Exception(f"Invalid image at URL: {url} - {e}")
 
+            # 이미지 캡션 생성 함수
             caption = generate_caption(image_stream)
-            nouns = extract_nouns(caption)
-            captions[url] = caption
-
+            # 명사 추출 함수
             nouns = extract_nouns(caption)
 
-            current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            insert_query = """
-            INSERT INTO image_captions (user_id, image_url, caption, similarity_score, nouns)
-            VALUES (%s, %s, %s, NULL, %s)
-            """
-            db_cursor.execute(insert_query, (user_id, url, caption, nouns))
+            # 캡션과 명사를 리스트에 저장
+            arr.append({
+                'caption': caption,
+                'nouns': nouns
+            })
+            nouns_list = nouns.split()
+            all_nouns.extend(nouns_list)
 
+        # 리스트를 JSON 문자열로 변환
+        json_data = json.dumps(arr)
+        nounlist = ' '.join(all_nouns)
+
+        # 데이터베이스에 저장
+        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        insert_query = """
+        INSERT INTO image_captions (user_id, image_url, caption, nouns)
+        VALUES (%s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE
+            image_url = VALUES(image_url),
+            caption = VALUES(caption),
+            nouns = VALUES(nouns)
+        """
+        db_cursor.execute(insert_query, (user_id, url, json_data, nounlist))
         db_connection.commit()
+
+        # calculate_similarity_scores 함수 호출
+        logger.info(f"Calling calculate_similarity_scores for user_id: {user_id}")
         calculate_similarity_scores(user_id)
-        return jsonify({"captions": captions})
+
+        return jsonify({"captions": arr})  # arr을 반환하여 캡션과 명사 정보를 포함
+
     except Exception as error:
         db_connection.rollback()
         logger.error(f"Error analyzing images: {error}")
         traceback.print_exc()
         return jsonify({"error": "Failed to analyze images", "details": str(error)}), 500
 
+# 캡션의 명사를 가지고 유사도 분석하기
 def calculate_similarity_scores(user_id):
     if not db_connection:
         logger.error('DB 연결 실패')
         return
 
     try:
+        # 사용자 명사 가져오기
         db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (user_id,))
-        new_user_nouns_list = [row[0] for row in db_cursor.fetchall() if row[0]]
+        new_user_nouns_list = [row['nouns'] for row in db_cursor.fetchall() if 'nouns' in row]
+        
+        # 로그 추가
+        logger.info(f"New user nouns list: {new_user_nouns_list}")
 
         if not new_user_nouns_list:
             logger.error('No nouns found for the user')
             return
 
         new_user_nouns = ' '.join(new_user_nouns_list)
+        
         new_user_embedding = model.encode(new_user_nouns, convert_to_tensor=True)
 
-        db_cursor.execute("SELECT DISTINCT user_id FROM image_captions WHERE user_id != %s ORDER BY RAND() LIMIT 5", (user_id,))
-        other_user_ids = [row[0] for row in db_cursor.fetchall()]
+        # 다른 사용자들의 ID 가져오기
+        db_cursor.execute("SELECT DISTINCT user_id FROM image_captions WHERE user_id != %s ORDER BY RAND() LIMIT 20", (user_id,))
+        other_user_ids = [row['user_id'] for row in db_cursor.fetchall()]
+        
+        # 로그 추가
+        # logger.info(f"Other user IDs: {other_user_ids}")
 
         for other_user_id in other_user_ids:
+            # 다른 사용자 명사 가져오기
             db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (other_user_id,))
-            other_user_nouns_list = [row[0] for row in db_cursor.fetchall() if row[0]]
+            other_user_nouns_list = [row['nouns'] for row in db_cursor.fetchall() if 'nouns' in row]
+
+            # 로그 추가
+            logger.info(f"Other user {other_user_id} nouns list: {other_user_nouns_list}")
 
             if not other_user_nouns_list:
                 continue
@@ -676,15 +710,16 @@ def calculate_similarity_scores(user_id):
             other_user_nouns = ' '.join(other_user_nouns_list)
             other_user_embedding = model.encode(other_user_nouns, convert_to_tensor=True)
 
+            similarity = util.pytorch_cos_sim(new_user_embedding, other_user_embedding).item()  # 코사인 유사도 사용
 
-            similarity = util.pytorch_cos_sim(new_user_embedding, other_user_embedding).item()      #cos 사용해서 캡션 명사 간의 유사도 계산
-
+            # 유사도 점수를 데이터베이스에 저장
             insert_similarity_query = """
             INSERT INTO UserCaptionSimilarity (user_id1, user_id2, similarity_score)
             VALUES (%s, %s, %s)
             ON DUPLICATE KEY UPDATE similarity_score = VALUES(similarity_score)
             """
             db_cursor.execute(insert_similarity_query, (user_id, other_user_id, similarity))
+            logger.info(f"Inserted similarity score between {user_id} and {other_user_id}: {similarity}")
 
         db_connection.commit()
     except Exception as error:

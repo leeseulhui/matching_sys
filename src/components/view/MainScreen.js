@@ -2,10 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { image,icons } from '../../../assets/image'
+import { image, icons } from '../../../assets/image'
 import axios from 'axios';
 import { useSelector } from 'react-redux';
-
+import { nodeUrl } from '../../deviceSet';
 const home_tabs = [
   { name: "Test", screenKey: "나의 연애지식", icon: icons.test },
   { name: "Dating", screenKey: "데이트소개서", icon: icons.dating },
@@ -26,15 +26,15 @@ const MainScreen = () => {
   const [activeScreen, setActiveScreen] = useState(null);
   const [username, setUsername] = useState("Loading...");
   const [similarProfiles, setSimilarProfiles] = useState([]);
-  const userId = useSelector((state)=>state.instaUserData.User_id)
-  useEffect(() => { 
+  const userId = useSelector((state) => state.instaUserData.User_id)
+  useEffect(() => {
     fetchUsername(userId);
   }, []);
 
 
   const fetchUsername = async (userId) => {
     try {
-      const response = await axios.get(`http://10.0.2.2:8080/chatname/${userId}`);
+      const response = await axios.get(`${nodeUrl}/chatname/${userId}`);
       if (response.data && response.data.length > 0) {
         setUsername(response.data[0].Username);  // 가정: 서버가 Username을 배열의 첫 번째 요소로 반환
       } else {
@@ -72,8 +72,8 @@ const MainScreen = () => {
       case 'Feed':
         navigation.navigate('인스타그램피드');
         break;
-      case 'Chat':  
-      navigation.navigate('채팅', { matchingID: '71' });  // Pass the matchingID here
+      case 'Chat':
+        navigation.navigate('채팅', { matchingID: '71' });  // Pass the matchingID here
         break;
       default:
         console.log('No screen associated');
@@ -87,7 +87,7 @@ const MainScreen = () => {
       style={[styles.tabItem, activeScreen === name && styles.activeTab]}
       onPress={() => {
         setActiveScreen(name);
-        navigateToDatingProfile(name); 
+        navigateToDatingProfile(name);
       }}
     >
       <Image source={icon} style={styles.icon} />
@@ -123,7 +123,7 @@ const MainScreen = () => {
           </View>
         ))}
       </ScrollView>
-      <ScrollView 
+      <ScrollView
         style={styles.bannerContainer}
         showsVerticalScrollIndicator={false}
       >
@@ -143,8 +143,8 @@ const MainScreen = () => {
       </ScrollView>
     </View>
   );
-  
-        }  
+
+}
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
     color: '#333',
     paddingHorizontal: 20,
     paddingTop: 50,
-  },  
+  },
   bannerContent: {
     alignItems: 'center',
   },

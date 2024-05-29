@@ -51,14 +51,14 @@ const ChatScreen = ({ route }) => {
 
   const fetchMessages = async () => {
     try {
-      console.log(matchingID);
+      console.log('fetchMessages userId:', userId, 'matchingID:', matchingID);
       const response = await fetch(`${nodeUrl}/chat/messages/${matchingID}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         }
       });
-  
+
       if (!response.ok) {
         if (response.status === 404) {
           setMessages([]); // 메시지가 없을 경우 빈 배열로 설정
@@ -74,7 +74,6 @@ const ChatScreen = ({ route }) => {
       Alert.alert('Error', 'Failed to fetch messages');
     }
   };
-  
 
   const sendMessage = async () => {
     if (inputMessage.trim() === '') return;
@@ -113,12 +112,18 @@ const ChatScreen = ({ route }) => {
     }
   };
 
-  const renderItem = ({ item }) => (
-    <View style={[styles.messageContainer, item.SenderID === userId ? styles.myMessage : styles.theirMessage]}>
-      <Text style={styles.message}>{item.MessageContent}</Text>
-      <Text style={styles.timestamp}>{new Date(item.SentDate).toLocaleString()}</Text>
-    </View>
-  );
+  const renderItem = ({ item }) => {
+    const isMyMessage = item.SenderID == userId;
+    return (
+      <View style={[
+        styles.messageContainer,
+        isMyMessage ? styles.myMessage : styles.theirMessage
+      ]}>
+        <Text style={styles.message}>{item.MessageContent}</Text>
+        <Text style={styles.timestamp}>{new Date(item.SentDate).toLocaleString()}</Text>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -134,6 +139,7 @@ const ChatScreen = ({ route }) => {
           placeholder="메시지 입력..."
           value={inputMessage}
           onChangeText={setInputMessage}
+          onSubmitEditing={sendMessage} // 엔터 키를 누르면 메시지를 전송
         />
         <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
           <Text style={styles.sendButtonText}>전송</Text>
@@ -185,14 +191,15 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 10,
     marginVertical: 5,
+    maxWidth: '70%', // 메시지 박스의 최대 너비 설정
   },
   myMessage: {
     backgroundColor: '#DCF8C6',
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-end', // 오른쪽 정렬
   },
   theirMessage: {
     backgroundColor: '#ECECEC',
-    alignSelf: 'flex-start',
+    alignSelf: 'flex-start', // 왼쪽 정렬
   },
   message: {
     fontSize: 16,

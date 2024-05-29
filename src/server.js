@@ -452,10 +452,6 @@ app.get('/chat/messages/:matchingID', async (req, res) => {
 });
 
 
-
-
-
-
 // 자기소개서 생선 전 질문에 대한 답변 부분
 app.post('/api/responses', (req, res) => {
   const { userId, responses } = req.body;

@@ -150,14 +150,15 @@ const RadarChart = () => {
           user2ID: randomUserId,
         }),
       });
-
+  
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        const errorText = await response.text();
+        throw new Error(errorText);
       }
-
+  
       const result = await response.json();
       console.log('Match result:', result);
-
+  
       Alert.alert(
         '매칭 성공',
         `User ${userId}와 User ${randomUserId}가 매칭되었습니다.`,
@@ -176,8 +177,7 @@ const RadarChart = () => {
         ]
       );
     } catch (error) {
-      console.error('Match error:', error);
-      Alert.alert('매칭 실패', '매칭 중 오류가 발생했습니다.');
+      Alert.alert('매칭 실패', error.message);
     }
   };
 

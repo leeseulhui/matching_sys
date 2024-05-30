@@ -76,6 +76,8 @@ const DatingProfileScreen = ({ navigation }) => {
 
   const handleGenerateIntroduction = async (dataToSend) => {
     const generateIntroUrl = `${flaskUrl}/generate_introduction`;
+    console.log('-----------------------------------------------',dataToSend);
+
     try {
       const generateIntroResponse = await axios.post(generateIntroUrl, dataToSend, {
         headers: {

@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, Blueprint, request, jsonify
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -8,7 +8,7 @@ import openai
 from flask_cors import CORS
 from io import BytesIO
 import re 
-
+from transformers import pipeline
 #이미지 캡션 라이브러리
 from azure_service import generate_caption, extract_nouns
 import json
@@ -52,6 +52,12 @@ app = Flask(__name__)
 CORS(app)  # 모든 도메인에 요청 허용
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+chatbot_bp = Blueprint('chatbot', __name__)
+
+# 챗봇 모델 로드 (사용자가 제공한 설정에 맞춤)
+sentiment_analyzer = pipeline('sentiment-analysis', model='bert-base-uncased')
+translator = Translator()
 
 load_dotenv()
 
@@ -186,70 +192,59 @@ def generate_introduction():
         # 질문에 맞게 프롬프트 생성
         question_map = {
             "사랑": [
-                "What is the most important characteristic of an ideal partner?",
-                "In what situation do you feel the most attraction to your partner?"
+                "이상적인 연인의 가장 중요한 특성은 무엇인가요?",
+                "어떤 상황에서 연인에게 가장 큰 매력을 느끼나요?"
             ],
             "일": [
-                "What do you think is the most important aspect of a job?"
+                "직업에 있어 가장 중요하다고 생각하는 것은 무엇인가요?"
             ],
             "식사": [
-                "What type of cuisine do you prefer?"
+                "어떤 유형의 음식을 선호하나요?"
             ],
             "놀이": [
-                "What do you usually do in your free time?"
+                "여가 시간에 주로 무엇을 하나요?"
             ],
             "사고": [
-                "How do you prefer to solve everyday problems?",
-                "What is the most important value in your life?"
+                "일상에서 마주하는 문제를 해결할 때 어떤 방식을 선호하나요?",
+                "인생에서 가장 중요한 가치는 무엇인가요?"
             ]
         }
+
         messages = [
             {
                 "role": "system",
-                "content": "You are an AI assistant with a talent for crafting engaging and attractive dating profiles. "
-                        "Your task is to work with users to create captivating and authentic profiles, highlighting their unique qualities and interests. "
-                        "Encourage users to share their personal stories and preferences, and build upon them to create a compelling and relatable dating introduction. "
-                        "Please ensure that the introduction is fluent, natural, and free of repetitive expressions. "
-                        "Avoid using the same words repeatedly. "
-                        "The introduction should be warm, personable, and suitable for a dating profile."
+                "content": "당신은 매력적이고 유쾌한 데이트 프로필을 작성하는 데 재능 있는 AI 어시스턴트입니다. "
+                        "사용자와 협력하여 그들의 고유한 특성과 관심사를 강조하는 매력적이고 진정성 있는 프로필을 만드세요. "
+                        "사용자가 자신의 개인적인 이야기와 선호를 공유하도록 격려하고, 이를 바탕으로 매력적이고 공감할 수 있는 데이트 자기소개서를 작성하세요. "
+                        "자기소개서는 유창하고 자연스럽고 반복적인 표현이 없도록 하세요. "
+                        "같은 단어를 반복해서 사용하지 마세요. "
+                        "자기소개서는 따뜻하고 개성 있으며 데이트 프로필에 적합해야 합니다."
             },
             {
                 "role": "user",
-                "content": f"Create a dating profile introduction for a user named {username} based on the following information:"
+                "content": f"{username}이라는 사용자의 다음 정보를 바탕으로 데이트 프로필 자기소개서를 작성하세요:"
             }
         ]
 
-
         for category, question_index, answer in responses:
             question = question_map[category][question_index]
-        messages.append({"role": "user", "content": f"{question}: {answer}"})
+            messages.append({"role": "user", "content": f"{question}: {answer}"})
 
         messages.append({
             "role": "system",
             "content": """
-            Create a detailed, engaging, and attractive dating profile introduction based on the provided information. 
-            Ensure the introduction is fluent and natural, and avoid repeating words. 
-            The introduction should be inviting and relatable, with a clear flow and natural language. 
-            Divide the introduction into clear paragraphs for better readability. 
-            Here's an example of a well-structured introduction:
-                         
-            <Example>
-            저는 이성을 볼 때 저와 가치관이 얼마나 잘 맞는지와 유머러스한지를 봅니다! 
-            외형적인 모습보다는 내면적인 모습을 더 집중적으로 봐요 👀
-            저는 요리법을 가장 중요시 여기기 때문에, 야근이 잦은 일을 하시는 분들은 원치 않습니다.
-            또한 가리는 음식 유형은 없지만 특히!! 한식을 좋아합니다. 그 중 순두부찌개를 가장 좋아하고 잘 만들어요! 그래서 같이 요리를 할 수 있는 분이면 더 좋을 것 같습니다 🍲
-            여가시간에는 주로 평일에 일에 치여 읽지 못했던 읽고 싶었던 책을 읽거나, 운동을 하면서 스트레스를 풉니다. 운동은 러닝을 좋아하고 자주 하는 편이에요! 여행도 종종 가는 편입니다!
-            저는 계획적이지 않기 때문에 계획적인 분이시라면 더 호감이 갈 것 같습니다.
-            여행을 할 때 모든걸 즉흥적으로 하지는 않지만, 계획을 세세하게 짜 놓는 편은 아닙니다.
-
-            이런 저와 비슷한 분이 계시다면 쪽지를 주세요! 대화를 통해 서로 더 알아가면 좋을 것 같습니다! 💪
-            """})
+            제공된 정보를 바탕으로 상세하고 매력적이며 유쾌한 데이트 프로필 자기소개서를 작성하세요. 
+            자기소개서는 유창하고 자연스러우며, 단어의 반복을 피하세요. 
+            자기소개서는 초대할 수 있고 공감할 수 있는 형태로, 명확한 흐름과 자연스러운 언어로 작성되어야 합니다. 
+            더 나은 가독성을 위해 명확한 단락으로 나누세요.
+            """
+        })
 
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             messages=messages,
-            max_tokens=200,
-            temperature=0.7,
+            max_tokens=150,
+            temperature=1,
             n=1
         )
 
@@ -264,24 +259,20 @@ def generate_introduction():
         formatted_introduction = '\n\n'.join(re.split(r'(?<=\.) ', formatted_introduction))
 
         summary_messages = [
-        {"role": "system", "content": "You are a sophisticated dating matching assistant. Your task is to extract key information from a user-provided introduction, emphasizing clear, concise language."},
-        {"role": "system", "content": "Identify the main characteristics, hobbies, and preferences of the user."},
-        {"role": "system", "content": "Summarize the introduction into three clear and concise paragraphs, focusing on key details."},
-        {"role": "user", "content": f"Summarize the following text in three concise paragraphs, highlighting the key aspects:\n\n{formatted_introduction}"}
-    ]
+            {"role": "system", "content": "당신은 정교한 데이트 매칭 어시스턴트입니다. 사용자가 제공한 소개서에서 주요 정보를 추출하여 명확하고 간결한 언어로 강조하세요."},
+            {"role": "system", "content": "사용자의 주요 특성, 취미, 선호도를 식별하세요."},
+            {"role": "system", "content": "소개서를 세 가지 명확하고 간결한 단락으로 요약하여 주요 내용을 강조하세요."},
+            {"role": "user", "content": f"다음 텍스트를 세 가지 간결한 단락으로 요약하여 주요 측면을 강조하세요:\n\n{formatted_introduction}"}
+        ]
 
         summary_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4o",
             messages=summary_messages,
-            max_tokens=100,
-            temperature=0.7,
+            max_tokens=75,
+            temperature=1,
             n=1
         )
         summary = summary_response.choices[0].message['content'].strip()
-
-        translator = Translator()
-        translated_introduction = translator.translate(formatted_introduction, src='en', dest='ko').text
-        translated_summary = translator.translate(summary, src='en', dest='ko').text
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_intro_query = """
@@ -289,17 +280,19 @@ def generate_introduction():
         VALUES (%s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE Content = VALUES(Content), LastModifiedDate = VALUES(LastModifiedDate), Summary = VALUES(Summary)
         """
-        insert_intro_data = (user_id, '데이트 자기소개서', translated_introduction, current_time, current_time, translated_summary)
+        insert_intro_data = (user_id, '데이트 자기소개서', formatted_introduction, current_time, current_time, summary)
         db_cursor.execute(insert_intro_query, insert_intro_data)
 
         db_connection.commit()
 
-        return jsonify({'introduction': translated_introduction, 'summary': translated_summary}), 200
+        return jsonify({'introduction': formatted_introduction, 'summary': summary}), 200
     except Exception as e:
         db_connection.rollback()
         app.logger.error(f"자기소개서 생성 중 오류 발생: {e}")
         traceback.print_exc()  # 추가된 오류 추적
         return jsonify({'error': f'자기소개서 생성 중 오류 발생: {e}'}), 500
+
+
 
 
 @app.route('/get_introduction_summary', methods=['POST'])
@@ -754,6 +747,187 @@ def face_detection():
             os.unlink(temp_file.name)
         except PermissionError as e:
             logging.error(f"Error deleting temporary file: {e}")
+
+
+
+#챗봇 부분  
+#중복되는 단어 제거            
+def clean_response(text):
+    """중복 단어 제거 및 불필요한 문자 제거"""
+    # 단어 중복 제거
+    words = text.split()
+    cleaned_words = []
+    for i in range(len(words)):
+        if i == 0 or words[i] != words[i-1]:
+            cleaned_words.append(words[i])
+    cleaned_text = ' '.join(cleaned_words)
+    
+    # 문장 끝의 중복 제거
+    cleaned_text = cleaned_text.replace(' 요 요 요 요', ' 요')
+    cleaned_text = cleaned_text.replace(' 요 요', ' 요')
+    cleaned_text = cleaned_text.replace('어요 요', '어요')
+    cleaned_text = cleaned_text.replace('요! 요!', '요!')
+
+    # 불필요한 문장 부호 제거
+    cleaned_text = cleaned_text.lstrip('- "').rstrip('"')
+    
+    return cleaned_text
+
+def generate_conversation_starters(user_profile):
+    interests = user_profile.get('Interests', '관심사')
+    attractions = user_profile.get('Attractions', '매력')
+
+    prompt = f"""
+    You are Want, a helpful and friendly chatbot. You assist users in starting and maintaining conversations with their matches.
+    The user you're assisting likes {interests} and finds {attractions} attractive.
+    Provide conversation starters in Korean that are casual and engaging, using polite but friendly language.
+    Ensure each sentence follows the subject-verb-object structure and avoid repeating the same words.
+    Do not include greetings like "Hello" or "Hi".
+    Avoid situations where investigations come first and nouns come out.
+    Make sure to create sentences without repeating words like "sometimes, sometimes".
+    Please don't repeat the same investigation at the end of the sentence.
+    Remember, these users have never met before.
+
+    Examples of desired sentences:
+    - "어떤 운동을 즐기세요? 저는 요가해본 적 있어요!"
+    - "어디서 주로 옷 사세요? 스타일이 제 마음에 쏙 들어요!"
+    - "저는 운동하면서 땀 날때 기분 좋더라고요!"
+    - "패션에 관심 많으세요? 저는 다양한 스타일 도전해보는거 좋아해요."
+    - "저는 음악을 들으면 더 힘이 나더라구요."
+    - "옷 잘 입는 비결있으세요?"
+    - "운동할 때 어떤 음악 주로 들으세요? 전 팝송 들으면서 해요."
+    - "운동을 어디서 주로 하시나요?"
+
+    Generate responses in a similar manner.
+    """
+
+    try:
+        gpt_response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are Want, a helpful and friendly dating chatbot."},
+                {"role": "user", "content": "What do you enjoy doing in your free time?"},
+                {"role": "assistant", "content": "I love hiking and exploring nature trails. How about you?"},
+                {"role": "user", "content": "What's your favorite type of music?"},
+                {"role": "assistant", "content": "I really enjoy listening to popsong. It helps me relax."},
+                {"role": "user", "content": "Do you like to cook?"},
+                {"role": "assistant", "content": "Yes, I love cooking Italian dishes. Do you have a favorite cuisine?"},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=200,
+            n=1,
+            stop=None,
+            temperature=0.8
+        )
+
+        # GPT-4 응답을 파싱하고 정리
+        responses = gpt_response.choices[0].message['content'].strip().split('\n')
+        cleaned_responses = [clean_response(response.strip()) for response in responses if response.strip()]
+        # 번역을 통한 자연스러운 표현 생성
+
+        logger.info(f"Original GPT-4 responses: {cleaned_responses}")#번역전데이터
+
+
+        # translated_responses = []
+        # for response in cleaned_responses:
+        #     if response:
+        #         translated_text = translator.translate(response, src='en', dest='ko').text
+        #         translated_responses.append(clean_response(translated_text))
+
+        return cleaned_responses  # 질문 개수 제한 없음
+
+    except Exception as e:
+        logger.error(f"Error generating conversation starters: {e}")
+        return []
+
+
+@app.route('/chatbot/suggestions', methods=['POST'])
+def get_suggestions():
+    user_data = request.json
+    user_id = user_data['userId']
+    logger.info(f"Received request for user ID: {user_id}")
+
+    cursor = db_connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM Users WHERE User_id = %s", (user_id,))
+    user_profile = cursor.fetchone()
+
+    if not user_profile:
+        logger.warning(f"User with ID {user_id} not found")
+        return jsonify({"error": "User not found"}), 404
+
+    try:
+        cursor = db_connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Users WHERE User_id = %s", (user_id,))
+        user_profile = cursor.fetchone()
+
+        if not user_profile:
+            logger.warning(f"User with ID {user_id} not found")
+            return jsonify({"error": "User not found"}), 404
+
+        gpt_suggestions_texts = generate_conversation_starters(user_profile)
+        logger.info(f"Generated suggestions: {gpt_suggestions_texts}")
+
+    except openai.error.OpenAIError as e:
+        logger.error(f"Error from OpenAI: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        logger.error(f"Database or other error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify(gpt_suggestions_texts)
+
+
+
+@app.route('/chat/messages/<matchingID>', methods=['GET'])
+def get_messages(matchingID):
+    try:
+        query = 'SELECT * FROM Messages WHERE MatchingID = %s ORDER BY SentDate ASC'
+        db_cursor.execute(query, (matchingID,))
+        messages = db_cursor.fetchall()
+        if messages:
+            return jsonify({"messages": messages})
+        else:
+            return jsonify({"message": "No messages found for this matching ID."}), 404
+    except Exception as error:
+        print('Failed to retrieve messages:', error)
+        return jsonify({"message": "Failed to retrieve messages due to server error.", "error": str(error)}), 500
+
+@app.route('/chat/messages', methods=['POST'])
+def post_message():
+    data = request.json
+    matchingID = data.get('matchingID')
+    senderID = data.get('senderID')
+    receiverID = data.get('receiverID')
+    messageContent = data.get('messageContent')
+    
+    if not matchingID or not senderID or not receiverID or not messageContent:
+        return jsonify({"error": "Missing required fields"}), 400
+
+    insert_query = '''
+        INSERT INTO Messages (MatchingID, SenderID, ReceiverID, MessageContent, SentDate, DeletedContent)
+        VALUES (%s, %s, %s, %s, NOW(), NULL)
+    '''
+    try:
+        db_cursor.execute(insert_query, (matchingID, senderID, receiverID, messageContent))
+        db_connection.commit()
+        new_message_id = db_cursor.lastrowid
+        new_message = {
+            "MessageID": new_message_id,
+            "MatchingID": matchingID,
+            "SenderID": senderID,
+            "ReceiverID": receiverID,
+            "MessageContent": messageContent,
+            "SentDate": datetime.now().isoformat()
+        }
+        return jsonify(new_message)
+    except Exception as error:
+        print('Error inserting message into database:', error)
+        db_connection.rollback()
+        return jsonify({"error": "Error inserting message into database", "details": str(error)}), 500
+
+
+
+
 
 app.register_blueprint(similarity_blueprint)
 if __name__ == "__main__":

@@ -811,11 +811,25 @@ app.post('/match', async (req, res) => {
     return res.status(400).send('동일한 유저끼리는 매칭할 수 없습니다.');
   }
 
-  const query = `INSERT INTO Matching (User1ID, User2ID) VALUES (?, ?)`;
-  console.log('Executing query:', query, [user1ID, user2ID]);
+  const checkQuery = `
+    SELECT * FROM Matching 
+    WHERE (User1ID = ? AND User2ID = ?) 
+       OR (User1ID = ? AND User2ID = ?)
+  `;
+
+  const insertQuery = `INSERT INTO Matching (User1ID, User2ID) VALUES (?, ?)`;
 
   try {
-    const [result] = await connection.query(query, [user1ID, user2ID]);
+    const [existingMatches] = await connection.query(checkQuery, [user1ID, user2ID, user2ID, user1ID]);
+
+    if (existingMatches.length > 0) {
+      console.log('Matching already exists');
+      return res.status(400).send('이미 매칭이된 사용자 입니다.');
+    }
+
+    console.log('Executing query:', insertQuery, [user1ID, user2ID]);
+    const [result] = await connection.query(insertQuery, [user1ID, user2ID]);
+
     console.log('매칭 성공:', result.insertId);
     res.status(201).send({ message: '매칭 성공', matchingID: result.insertId });
   } catch (error) {
@@ -823,6 +837,9 @@ app.post('/match', async (req, res) => {
     res.status(500).send('매칭 오류가 발생했습니다.');
   }
 });
+
+
+
 
 
 

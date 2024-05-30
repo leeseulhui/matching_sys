@@ -17,7 +17,8 @@ export const image ={
    arrowLeft: require('./arrow_left.png'),
    arrowRight: require('./arrow_right.png'),
    couple: require('./couple.png'),
-   azure : require('./azure.png')
+   azure : require('./azure.png'),
+   reload : require('./reload.png')
 }
 export const icons={
     test:require('./test.png'),

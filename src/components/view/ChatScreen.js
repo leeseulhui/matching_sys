@@ -11,13 +11,12 @@ const ChatScreen = ({ route }) => {
 
   useEffect(() => {
     const websocket = new WebSocket('wss://owonet.store/chat/messages/ws');
-    setWs(websocket);
-
+    
     websocket.onopen = () => {
       console.log('WebSocket Connected');
       websocket.send(JSON.stringify({ type: 'join', matchingID }));
     };
-
+  
     websocket.onmessage = (e) => {
       const message = JSON.parse(e.data);
       if (message.MatchingID === matchingID) {
@@ -29,21 +28,20 @@ const ChatScreen = ({ route }) => {
         });
       }
     };
-
+  
     websocket.onerror = (e) => {
       console.error('WebSocket Error: ', e.message);
-      console.error('WebSocket Error Event: ', e);
     };
-
+  
     websocket.onclose = (e) => {
       console.log(`WebSocket Disconnected: Reason: ${e.reason}, Code: ${e.code}, Clean: ${e.wasClean}`);
-      console.log('WebSocket Close Event: ', e);
     };
-
+  
     return () => {
       websocket.close();
     };
-  }, []);
+  }, [matchingID]);
+  
 
   useEffect(() => {
     fetchMessages();
@@ -58,10 +56,10 @@ const ChatScreen = ({ route }) => {
           'Content-Type': 'application/json',
         }
       });
-
+  
       if (!response.ok) {
         if (response.status === 404) {
-          setMessages([]); // 메시지가 없을 경우 빈 배열로 설정
+          setMessages([]); 
         } else {
           throw new Error('Failed to fetch messages');
         }
@@ -74,10 +72,11 @@ const ChatScreen = ({ route }) => {
       Alert.alert('Error', 'Failed to fetch messages');
     }
   };
+  
 
   const sendMessage = async () => {
     if (inputMessage.trim() === '') return;
-
+  
     try {
       const response = await fetch(`${baseURL}/chat/messages`, {
         method: 'POST',
@@ -91,26 +90,27 @@ const ChatScreen = ({ route }) => {
           messageContent: inputMessage,
         }),
       });
-
+  
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
-
+  
       const newMessage = await response.json();
-
+  
       setMessages(previousMessages => {
         if (!previousMessages.some(msg => msg.MessageID === newMessage.MessageID)) {
           return [...previousMessages, newMessage];
         }
         return previousMessages;
       });
-
+  
       setInputMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Error', 'Failed to send message');
     }
   };
+  
 
   const renderItem = ({ item }) => {
     const isMyMessage = item.SenderID == userId;

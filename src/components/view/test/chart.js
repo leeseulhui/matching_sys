@@ -13,6 +13,8 @@ const RadarChart = () => {
   const [loading, setLoading] = useState(true);
   const [isModalVisible, setModalVisible] = useState(false);
   const [selectedUserIndex, setSelectedUserIndex] = useState(null);
+  const [sortedUsers, setSortedUsers] = useState([]);
+  const [similarityPercentage, setSimilarityPercentage] = useState(0);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -30,7 +32,9 @@ const RadarChart = () => {
           userFaceSimilarity: result.userFaceSimilarity.map(value => value / 100)
         };
 
+        const sortedUsers = calculateAndSortUsers(adjustedResult);
         setData(adjustedResult);
+        setSortedUsers(sortedUsers);
       } catch (error) {
         console.error('Fetch error:', error);
       } finally {
@@ -40,6 +44,19 @@ const RadarChart = () => {
 
     fetchData();
   }, [userId, randomUserIds]);
+
+  const calculateAndSortUsers = (data) => {
+    const keys = ['datingProfileSimilarity', 'userCaptionSimilarity', 'userFaceSimilarity', 'userIdealSimilarity', 'userSimilarity'];
+    const userSimilarityData = randomUserIds.map((randomUserId, index) => {
+      const totalSum = keys.reduce((acc, key) => {
+        const value = data[key] ? data[key][index] : 0;
+        return acc + value;
+      }, 0);
+      const average = totalSum / keys.length;
+      return { userId: randomUserId, index, similarityPercentage: average * 100 };
+    });
+    return userSimilarityData.sort((a, b) => b.similarityPercentage - a.similarityPercentage);
+  };
 
   const labels = ["프로필", "캡션", "얼굴", "이상형", "해시"];
   const radius = 50; // 반지름을 줄임
@@ -166,6 +183,8 @@ const RadarChart = () => {
 
   const toggleModal = (index) => {
     setSelectedUserIndex(index);
+    const percentage = sortedUsers[index].similarityPercentage;
+    setSimilarityPercentage(percentage);
     setModalVisible(!isModalVisible);
   };
 
@@ -180,21 +199,25 @@ const RadarChart = () => {
 
   return (
     <ScrollView contentContainerStyle={styles.scrollViewContainer}>
-      {randomUserIds.map((randomUserId, index) => (
-        <TouchableOpacity key={index} style={styles.card} onPress={() => toggleModal(index)}>
+      {sortedUsers.map((user, index) => (
+        <TouchableOpacity key={user.userId} style={styles.card} onPress={() => toggleModal(user.index)}>
           <View style={styles.cardLeft}>
             <Image
-              source={{ uri: data.userDetails && data.userDetails[index] && data.userDetails[index].User_profile_image }}
+              source={{ uri: data.userDetails && data.userDetails[user.index] && data.userDetails[user.index].User_profile_image }}
               style={styles.profileImageCard}
             />
-            <Text style={styles.userNameCard}>{data.userDetails && data.userDetails[index] && data.userDetails[index].Username}</Text>
-            <Text style={styles.userAgeCard}>{data.userDetails && data.userDetails[index] && data.userDetails[index].Age} years old</Text>
+            <Text style={styles.userNameCard}>{data.userDetails && data.userDetails[user.index] && data.userDetails[user.index].Username}</Text>
+            <Text style={styles.userAgeCard}>{data.userDetails && data.userDetails[user.index] && data.userDetails[user.index].Age} years old</Text>
           </View>
           <View style={styles.cardRight}>
-            <Text style={styles.userDetailText}>종교: {data.userDetails && data.userDetails[index] && data.userDetails[index].Religion}</Text>
-            <Text style={styles.userDetailText}>성격: {data.userDetails && data.userDetails[index] && data.userDetails[index].MBTI}</Text>
-            <Text style={styles.userDetailText}>관심사: {data.userDetails && data.userDetails[index] && data.userDetails[index].Interests}</Text>
-            <Text style={styles.userDetailText}>매력을 느끼는 행동: {data.userDetails && data.userDetails[index] && data.userDetails[index].Attractions}</Text>
+            <Text style={styles.userDetailText}>종교: {data.userDetails && data.userDetails[user.index] && data.userDetails[user.index].Religion}</Text>
+            <Text style={styles.userDetailText}>성격: {data.userDetails && data.userDetails[user.index] && data.userDetails[user.index].MBTI}</Text>
+            <Text style={styles.userDetailText}>관심사: {data.userDetails && data.userDetails[user.index] && data.userDetails[user.index].Interests}</Text>
+            <Text style={styles.userDetailText}>매력을 느끼는 행동: {data.userDetails && data.userDetails[user.index] && data.userDetails[user.index].Attractions}</Text>
+            <View style={styles.similarityContainer}>
+                  <Text style={styles.similarityTitle}>매칭 추천율</Text>
+                  <Text style={styles.similarityText}>{user.similarityPercentage.toFixed(2)}%</Text>
+            </View>
           </View>
         </TouchableOpacity>
       ))}
@@ -233,6 +256,10 @@ const RadarChart = () => {
                   data.userIdealSimilarity ? data.userIdealSimilarity[selectedUserIndex] : 0,
                   data.userSimilarity ? data.userSimilarity[selectedUserIndex] : 0,
                 ])}
+                <View style={styles.similarityContainer}>
+                  <Text style={styles.similarityTitle}>유사도 백분율</Text>
+                  <Text style={styles.similarityText}>{similarityPercentage.toFixed(2)}%</Text>
+                </View>
                 <TouchableOpacity style={styles.matchButton} onPress={() => handleMatch(randomUserIds[selectedUserIndex])}>
                   <Text style={styles.matchButtonText}>매칭하기</Text>
                 </TouchableOpacity>
@@ -257,7 +284,7 @@ const styles = StyleSheet.create({
   },
   card: {
     position: 'relative',
-    marginBottom: 40,
+    marginBottom: 20,
     padding: 20,
     backgroundColor: '#fff',
     borderRadius: 10,
@@ -267,6 +294,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     flexDirection: 'row', // Row direction
     width: '90%',
+    alignItems: 'center',
   },
   cardLeft: {
     alignItems: 'center',
@@ -292,6 +320,17 @@ const styles = StyleSheet.create({
   userDetailText: {
     fontSize: 12,
     marginBottom: 5,
+  },
+  similarityContainer: {
+    marginTop: 10,
+  },
+  similarityTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  similarityText: {
+    fontSize: 14,
+    color: '#FF6C3D',
   },
   canvasContainer: {
     position: 'relative',
@@ -381,6 +420,29 @@ const styles = StyleSheet.create({
   idealText: {
     fontSize: 14,
     marginBottom: 5,
+  },
+  averageContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  averageTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  averageText: {
+    fontSize: 14,
+  },
+  similarityContainer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  similarityTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  similarityText: {
+    fontSize: 14,
+    color: '#FF6C3D',
   },
   matchButton: {
     marginTop: 20,

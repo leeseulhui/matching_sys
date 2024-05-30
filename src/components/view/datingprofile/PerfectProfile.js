@@ -44,7 +44,7 @@ const PerfectProfile = ({ selectedImageUrl }) => {
   useEffect(()=>{
     if(complete){
       setComplete(false);
-      navigation.navigate("메인화면")
+      navigation.navigate("자기소개서매칭")
     }
   },[complete])
 //이미지 url을 저장하는 db 요청코드

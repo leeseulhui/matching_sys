@@ -4,6 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ScrollView 
 import { useNavigation } from '@react-navigation/native';
 import { image,icons } from '../../../assets/image'
 import axios from 'axios';
+import { useSelector } from 'react-redux';
 
 const home_tabs = [
   { name: "Test", screenKey: "나의 연애지식", icon: icons.test },
@@ -25,11 +26,9 @@ const MainScreen = () => {
   const [activeScreen, setActiveScreen] = useState(null);
   const [username, setUsername] = useState("Loading...");
   const [similarProfiles, setSimilarProfiles] = useState([]);
-
-  useEffect(() => {
-    const userId = '7389320737824275'; 
+  const userId = useSelector((state)=>state.instaUserData.User_id)
+  useEffect(() => { 
     fetchUsername(userId);
-    // fetchSimilarProfiles();
   }, []);
 
 
@@ -74,7 +73,7 @@ const MainScreen = () => {
         navigation.navigate('인스타그램피드');
         break;
       case 'Chat':  
-      navigation.navigate('채팅', { matchingID: '7506894859370827' });  // Pass the matchingID here
+      navigation.navigate('채팅', { matchingID: '71' });  // Pass the matchingID here
         break;
       default:
         console.log('No screen associated');

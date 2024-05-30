@@ -191,21 +191,20 @@ const HashTest = () => {
         {isLoading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#FF9CB4" />
-            <Text style={styles.loadingText}>매칭상대 해시태그 분석중...</Text>
           </View>
         ) : (
           <>
             {error && <Text style={styles.error}>{error}</Text>}
             <View style={styles.section}>
               <View style={styles.card}>
-                <Text style={styles.title}>OneT가 분석한 {userId}님의 해시태그입니다!</Text>
+                <Text style={styles.title}>나의 해시태그</Text>
                 <View style={styles.hashTagContainer}>
                   <HashTagCloud hashTags={hashTags} />
                 </View>
               </View>
             </View>
             <View style={styles.section}>
-              <Text style={styles.subTitle}>매칭을 위한 사용자들의 해시태그 분석 결과:</Text>
+              <Text style={styles.subTitle}>🔽 원트님과 잘 맞는 상대 원트님들을 보여드려요 🔽</Text>
               {similarUsers.map((user, index) => (
                 <View key={index} style={styles.userCard}>
                   <Text style={styles.userName}>{user.name}</Text>
@@ -215,7 +214,7 @@ const HashTest = () => {
               ))}
             </View>
             <TouchableOpacity onPress={handleNavigateToAnalysis} style={styles.button}>
-              <Text style={styles.buttonText}>이상형 분석</Text>
+              <Text style={styles.buttonText}>Next</Text>
             </TouchableOpacity>
           </>
         )}
@@ -254,14 +253,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: 'white',
-    marginBottom: 15,
+    color: 'black',
+    marginTop: 40,
+    marginBottom: 20,
     textAlign: 'center',
   },
   subTitle: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: 'white',
+    color: 'black',
+    marginTop: 50,
     marginBottom: 10,
     textAlign: 'center',
   },
@@ -269,15 +270,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 10,
     padding: 10,
-    marginBottom: 10,
+    marginBottom: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
+
   },
   userCard: {
-    backgroundColor: '#ffffff',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
@@ -291,12 +293,12 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 16,
     fontWeight: 'bold',
-    marginBottom: 5,
+    marginBottom: 10,
   },
   userSimilarity: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: 'blue',
+    color: 'black',
   },
   error: {
     fontSize: 16,
@@ -308,12 +310,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF9CB4',
     padding: 15,
     borderRadius: 10,
-    marginTop: 20,
+    marginTop: 150,
     alignItems: 'center',
+    
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 

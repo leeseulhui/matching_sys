@@ -54,7 +54,7 @@ const IdealType = () => {
   const navigation = useNavigation();
   const [selectedOptions, setSelectedOptions] = useState({});
   const [currentPage, setCurrentPage] = useState(0);
-  const [username, setUsername] = useState("Loading...");
+  const [username, setUsername] = useState("Loading");
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {

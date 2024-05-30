@@ -41,6 +41,7 @@ switch(action.type){
       auth_token: action.auth_token,
       Username:action.Username,
       Birthdate:action.Birthdate,
+      User_profile_image:action.User_profile_image,
       Gender:action.Gender,
       Religion:action.Religion,
       MBTI:action.MBTI,
@@ -60,5 +61,4 @@ switch(action.type){
 
 
 };
-
 

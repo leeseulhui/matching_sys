@@ -1,17 +1,17 @@
 // 처음 시작하는 페이지
 
 import React, { useState, useContext, useEffect } from 'react';
-import { View, TextInput, Text, TouchableOpacity, StyleSheet, ImageBackground, Alert, Dimensions, Image, Platform} from 'react-native';
+import { View, TextInput, Text, TouchableOpacity, StyleSheet, ImageBackground, Alert, Dimensions, Image, Platform } from 'react-native';
 import { AuthContext } from './AuthProvider';//로그인 상태 관리?
 import LinearGradient from 'react-native-linear-gradient';
 import { useSelector, useDispatch } from "react-redux"; //redux 함수
-import {reboot_user_data} from '../../reduxContainer/action/signUpAction'
+import { reboot_user_data } from '../../reduxContainer/action/signUpAction'
 import { image } from '../../../assets/image';// 에셋 저장 데이터
-import { useNavigation } from '@react-navigation/native'; 
+import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = () => {
- //{ navigation, route } 기존 파라미터 
+  //{ navigation, route } 기존 파라미터 
   const navigation = useNavigation();
   const [reboot, setReboot] = useState(null);
   const dispatch = useDispatch();
@@ -21,20 +21,20 @@ const LoginScreen = () => {
   //   navigation.navigate("인스타그램분석");
   // };
   // const { signIn } = useContext(AuthContext);
-  const RebootUsers = useSelector((state)=>state.instaUserData);// reducer에서 데이터 가졍오기
-  console.log('redux 확인 데이터',RebootUsers);
-function handle_rebooted_user_data(jsonData){
-  console.log("함수내 파라미터 전달 확인", jsonData);
-  if (jsonData && jsonData.User_id != '') {  // jsonData가 유효하고 User_id가 존재하는지 확인
-    dispatch(reboot_user_data(jsonData.User_id,jsonData.auth_token,jsonData.Username,jsonData.Birthdate,jsonData.Gender,jsonData.Religion,jsonData.MBTI,jsonData.Interests,jsonData.Attractions,));
-  } else {
-    console.log("Invalid or empty jsonData:", jsonData);
+  const RebootUsers = useSelector((state) => state.instaUserData);// reducer에서 데이터 가졍오기
+  console.log('redux 확인 데이터', RebootUsers);
+  function handle_rebooted_user_data(jsonData) {
+    console.log("함수내 파라미터 전달 확인", jsonData);
+    if (jsonData && jsonData.User_id != '') {  // jsonData가 유효하고 User_id가 존재하는지 확인
+      dispatch(reboot_user_data(jsonData.User_id, jsonData.auth_token, jsonData.Username, jsonData.Birthdate, jsonData.User_profile_image, jsonData.Gender, jsonData.Religion, jsonData.MBTI, jsonData.Interests, jsonData.Attractions,));
+    } else {
+      console.log("Invalid or empty jsonData:", jsonData);
+    }
   }
-}
 
 
 
-  useEffect(()=>{
+  useEffect(() => {
     // asyncstorage 에 저장되어 있는 데이터를 가져와서 리덕스에 저장해줘야함..
     // 불러오는 것 까지만 작성되어 있음.
     async function retrieveUserData() {
@@ -55,22 +55,18 @@ function handle_rebooted_user_data(jsonData){
         console.error("Failed to retrieve the data", error);
       }
     }
-   
-  //  reboot == null ?  retrieveUserData():handle_rebooted_user_data(reboot)
-  retrieveUserData()
-  },[])
+
+    //  reboot == null ?  retrieveUserData():handle_rebooted_user_data(reboot)
+    retrieveUserData()
+  }, [])
 
 
 
-//일단 메인페이지로 넘어가는 코드추가해놓음
-const gotoMain=()=>{
-  navigation.navigate("인스타그램분석");
-  // navigation.navigate("메인화면");
-  
-  //구용이 꺼
-  //navigation.navigate("얼굴인식");
-  //navigation.navigate("메인화면");
-}
+  //일단 메인페이지로 넘어가는 코드추가해놓음
+  const gotoMain = () => {
+    // navigation.navigate("메인화면");
+    navigation.navigate("얼굴인식");
+  }
 
 
   const handleInstagramLogin = () => {
@@ -84,13 +80,13 @@ const gotoMain=()=>{
       imageStyle={styles.backgroundImage}
     >
       <View style={styles.container}>
-        <Image  source={image.logo} style={styles.logo}></Image>
+        <Image source={image.logo} style={styles.logo}></Image>
         <View style={styles.form}>
-          <TouchableOpacity style={styles.button} 
-          onPress={gotoMain}>
+          <TouchableOpacity style={styles.button}
+            onPress={gotoMain}>
             <Text style={styles.buttonText}>로그인</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.instagramButton}
             onPress={handleInstagramLogin}
           >
@@ -98,7 +94,7 @@ const gotoMain=()=>{
               colors={['#f9a3b2', '#f09433', '#e6683c', '#dc2743', '#cc2366', '#bc1888']}
               style={styles.gradient}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }} 
+              end={{ x: 1, y: 0 }}
             >
               <Text style={styles.buttonText}>인스타그램으로 시작하기</Text>
             </LinearGradient>

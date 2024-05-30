@@ -32,6 +32,7 @@ const DatingProfileSimilarity = ({ navigation }) => {
         console.error('Fetch similarity results error:', error);
       } finally {
         setIsLoading(false);
+        navigation.navigate("메인화면")
       }
     };
 

@@ -1,4 +1,4 @@
-//require('dotenv').config();
+// require('dotenv').config();
 require('dotenv').config({ path: '/Users/leeseulhui/Desktop/matching_sys-main/.env'}); //슬희꺼
 const express = require('express');
 const bodyParser = require('body-parser');
@@ -7,16 +7,15 @@ const WebSocket = require('ws');
 const AWS = require('aws-sdk');
 const fileUpload = require('express-fileupload');
 const helmet = require('helmet');
-const cors = require('cors');  // cors 모듈을 불러옴
 const util = require('util');
 const { error } = require('console');
+//node 서버 -> flask 서버로 요청 프록시 
 
 const app = express();
-app.use(cors()); // CORS 미들웨어 사용
 app.use(helmet());
 const port = process.env.PORT || 8080;
 
-// db 연결됐는지 확인하려고 짜놓음
+//db 연결됐는지 확인하려고 짜놓음
 console.log(process.env.DB_HOST);
 console.log(process.env.DB_USER);
 
@@ -26,9 +25,6 @@ const s3 = new AWS.S3({
   secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
   region: process.env.AWS_REGION
 });
-
-
-
 app.use(bodyParser.json());
 app.use(fileUpload({
   limits: { fileSize: 15 * 1024 * 1024 },
@@ -41,6 +37,7 @@ const connection = mysql.createPool({
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME
 });
+
 
 // WebSocket 서버 설정(채팅)
 const server = require('http').createServer(app);
@@ -201,7 +198,7 @@ app.post('/save-selected-images', async (req, res) => {
 });
 
 
-// 사용자 테이블
+// 사용자 테이블 페이지
 app.post('/users', async (req, res) => {
   const userData = req.body;
 
@@ -342,6 +339,7 @@ app.get('/matchUsers', async (req, res) => {
 });
 
 
+
 app.post('/get-matching-id', async (req, res) => {
   const { user1ID, user2ID } = req.body;
   try {
@@ -374,7 +372,7 @@ app.get('/user-photos/:userId', async (req, res) => {
       res.status(500).json({ error: '데이터베이스에서 사용자 사진 URL을 가져오는 중 오류 발생', details: err });
   }
 });
-
+///////////////////////////////
 app.post('/get-matching-id', async (req, res) => {
   const { user1ID, user2ID } = req.body;
   try {
@@ -391,10 +389,6 @@ app.post('/get-matching-id', async (req, res) => {
     res.status(500).json({ message: 'Database error', error });
   }
 });
-
-
-///////////////////////////////
-
 //테스트용 채팅id 찾기
 app.get('/chatItem/:id', async (req, res) => {
   const id = req.params.id;
@@ -422,7 +416,6 @@ app.get('/chatItem/:id', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
-
 //채팅 이름 내역 쿼리
 app.get('/chatname/:userId', async (req, res) => {
   const userId = req.params.userId;
@@ -441,19 +434,20 @@ app.get('/chatname/:userId', async (req, res) => {
   }
 });
 
-app.get('/match/:matchingID', async (req, res) => {
-  const { matchingID } = req.params;
-  const query = 'SELECT * FROM Matching WHERE MatchingID = ?';
+app.get('/chat/messages/:matchingID', async (req, res) => {
+  const matchingID = req.params.matchingID;
+  console.log("---------------------------------------");
+  console.log(matchingID);
   try {
-    const [results] = await connection.query(query, [matchingID]);
-    if (results.length > 0) {
-      res.json(results[0]);
-    } else {
-      res.status(404).json({ error: 'Matching not found' });
-    }
+    const query = 'SELECT * FROM Messages WHERE MatchingID = ? ORDER BY SentDate ASC';
+    const [messages] = await connection.query(query, [matchingID]);
+
+    console.log("Retrieved messages:", messages);
+
+    res.status(200).json({ messages });
   } catch (error) {
-    console.error('Failed to fetch matching:', error);
-    res.status(500).json({ error: 'Failed to fetch matching', details: error });
+    console.error('Failed to retrieve messages:', error);
+    res.status(500).json({ message: 'Failed to retrieve messages due to server error.', error });
   }
 });
 
@@ -604,7 +598,6 @@ app.get('/api/ideal-type', async (req, res) => {
   }
 });
 
-
 // 매칭을 위해서 받아온 랜던 5명의 유저의 프로필 정보를 가져오는 쿼리
 app.get('/api/ideal-typeR', async (req, res) => {
   const { userId } = req.query;
@@ -656,7 +649,6 @@ app.get('/api/user-profile', async (req, res) => {
 });
 
 
-//이상형 유사도 저장 쿼리
 app.post('/api/save-idealsimilarity', async (req, res) => {
   let { userId1, userId2, similarity } = req.body;
   if (userId1 > userId2) {
@@ -682,8 +674,7 @@ app.post('/api/save-idealsimilarity', async (req, res) => {
   }
 });
 
-
-// 해시태그 분석을 위한 랜덤유저 해시태그 정보 받아오는 쿼리
+// 해시태그 분석을 위한 랜덤유저 해시태그 정보 받아오기
 app.get('/api/random-users', async (req, res) => {
   const { userId } = req.query;  // 쿼리 파라미터에서 userId 추출
   if (!userId) {
@@ -707,7 +698,7 @@ app.get('/api/random-users', async (req, res) => {
   }
 });
 
-//얼굴분석을 마친 데이터를 db에 저자을 해주는 쿼리
+//얼굴분석을 마친 데이터를 db에 저자을 해주는 코드
 app.post('/api/store-similarity', async (req, res) => {
   const { user_id1, user_id2, similarity_score } = req.body;
   const query = `
@@ -746,10 +737,6 @@ app.post('/api/store-similarity', async (req, res) => {
 });
 
 
-
-
-const query = util.promisify(connection.query).bind(connection);
-
 // 유사도 데이터를 가져오는 API 엔드포인트
 app.get('/similarity/:userId/:randomUserIds', async (req, res) => {
   const { userId, randomUserIds } = req.params;
@@ -759,49 +746,112 @@ app.get('/similarity/:userId/:randomUserIds', async (req, res) => {
   console.log(`Request received for userId: ${userId} with randomUserIds: ${randomUserIds}`);
 
   const queries = [
-    `SELECT similarity FROM DatingProfileSimilarity WHERE user_id_1 = ? AND user_id_2 IN (${userIdsString})`,
-    `SELECT similarity_score FROM UserCaptionSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
-    `SELECT similarity_score FROM UserFaceSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
-    `SELECT idealsimilarity_score FROM UserIdealSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`,
-    `SELECT similarity_score FROM UserSimilarity WHERE user_id1 = ? AND user_id2 IN (${userIdsString})`
+    `SELECT similarity FROM DatingProfileSimilarity WHERE (user_id_1 = ? AND user_id_2 IN (${userIdsString})) OR (user_id_2 = ? AND user_id_1 IN (${userIdsString}))`,
+    `SELECT similarity_score FROM UserCaptionSimilarity WHERE (user_id1 = ? AND user_id2 IN (${userIdsString})) OR (user_id2 = ? AND user_id1 IN (${userIdsString}))`,
+    `SELECT similarity_score FROM UserFaceSimilarity WHERE (user_id1 = ? AND user_id2 IN (${userIdsString})) OR (user_id2 = ? AND user_id1 IN (${userIdsString}))`,
+    `SELECT idealsimilarity_score FROM UserIdealSimilarity WHERE (user_id1 = ? AND user_id2 IN (${userIdsString})) OR (user_id2 = ? AND user_id1 IN (${userIdsString}))`,
+    `SELECT similarity_score FROM UserSimilarity WHERE (user_id1 = ? AND user_id2 IN (${userIdsString})) OR (user_id2 = ? AND user_id1 IN (${userIdsString}))`
   ];
+
+  const userQueries = `
+    SELECT 
+      u.User_id, u.Username, YEAR(CURDATE()) - YEAR(u.Birthdate) AS Age, u.User_profile_image,
+      u.Religion, u.MBTI, u.Interests, u.Attractions,
+      i.Religion as IdealReligion, i.Personality as IdealPersonality, i.Interests as IdealInterests, i.AttractionActions as IdealAttractionActions, i.Age as IdealAge,
+      s.Title, s.Content
+    FROM Users u
+    LEFT JOIN IdealTypes i ON u.User_id = i.UserID
+    LEFT JOIN SelfIntroductions s ON u.User_id = s.User_id
+    WHERE u.User_id IN (${userIdsString});
+  `;
 
   try {
     const results = await Promise.all(queries.map(async (q) => {
       console.log(`Executing query: ${q} with userId: ${userId}`);
-      const [result] = await connection.query(q, [userId]);
+      const [result] = await connection.query(q, [userId, userId]);
       console.log(`Query result for query "${q}": ${JSON.stringify(result)}`);
       return result;
     }));
+
+    const [userDetails] = await connection.query(userQueries);
+
     console.log('All queries successful with results:', JSON.stringify(results));
     res.json({
       datingProfileSimilarity: results[0].map(row => row.similarity),
       userCaptionSimilarity: results[1].map(row => row.similarity_score),
       userFaceSimilarity: results[2].map(row => row.similarity_score),
       userIdealSimilarity: results[3].map(row => row.idealsimilarity_score),
-      userSimilarity: results[4].map(row => row.similarity_score)
+      userSimilarity: results[4].map(row => row.similarity_score),
+      userDetails
     });
   } catch (err) {
     console.error(`Promise failed with error: ${err}`);
     res.status(500).json({ error: err.message });
   }
 });
+
+
+
 //매칭테이블 생성
-app.post('/match', (req, res) => {
+app.post('/match', async (req, res) => {
   const { user1ID, user2ID } = req.body;
 
+  console.log('Received match request:', user1ID, user2ID);
+
   if (!user1ID || !user2ID) {
+    console.log('Missing user IDs');
     return res.status(400).send('user1ID와 user2ID가 필요합니다.');
   }
 
+  if (user1ID === user2ID) {
+    console.log('Matching with the same user ID is not allowed');
+    return res.status(400).send('동일한 유저끼리는 매칭할 수 없습니다.');
+  }
+
   const query = `INSERT INTO Matching (User1ID, User2ID) VALUES (?, ?)`;
-  connection.query(query, [user1ID, user2ID], (err, result) => {
-    if (err) {
-      console.error('매칭 데이터베이스 삽입 오류:', err);
-      return res.status(500).send('매칭 오류가 발생했습니다.');
-    }
+  console.log('Executing query:', query, [user1ID, user2ID]);
+
+  try {
+    const [result] = await connection.query(query, [user1ID, user2ID]);
+    console.log('매칭 성공:', result.insertId);
     res.status(201).send({ message: '매칭 성공', matchingID: result.insertId });
-  });
+  } catch (error) {
+    console.error('매칭 데이터베이스 삽입 오류:', error);
+    res.status(500).send('매칭 오류가 발생했습니다.');
+  }
+});
+
+
+// 사용자의 원트소개서 내용을 가져오는 엔드포인트
+app.post('/getUserContent', async (req, res) => {
+  const { userId } = req.body;
+  const query = 'SELECT Summary FROM SelfIntroductions WHERE User_id = ?';
+
+  try {
+    const [rows] = await connection.query(query, [userId]);
+    if (rows.length > 0) {
+      res.status(200).json({ content: rows[0].Summary });
+    } else {
+      res.status(404).json({ error: '해당 사용자 ID에 대한 내용을 찾을 수 없습니다.' });
+    }
+  } catch (error) {
+    console.log(error);
+    res.status(500).json({ error: '사용자 내용을 가져오는 중 오류 발생' });
+  }
+});
+// 사용자의 원트소개서 이미지를 저장하는 엔드 포인트
+app.post('/profile/saveimage', async (req, res) => {
+  const { userId, imageUrl } = req.body; // 변수명을 일관되게 수정
+  const query = 'UPDATE SelfIntroductions SET SelfIntroductionsURL = ? WHERE User_id = ?';
+
+  try {
+    const results = await connection.query(query, [imageUrl, userId]);
+    console.log('Database update results:', results); // 쿼리 실행 결과 로그
+    return res.status(200).json({ message: 'SelfIntroductions imageUrl add success!!' });
+  } catch (e) {
+    console.error('Error executing query:', e);
+    res.status(500).json({ error: 'SelfIntroductionsURL set failed' });
+  }
 });
 
 //사용자 프로필(마이페이지) 정보 수정 쿼리
@@ -827,99 +877,6 @@ app.patch('//usersupdate/:userId', async (req, res) => {
   } catch (error) {
     console.error('프로필 업데이트 중 오류 발생:', error);
     res.status(500).json({ error: '프로필 업데이트 중 오류 발생', details: error });
-  }
-});
-
-
-
-//////////////
-//채팅 메시지 전송 기능
-app.post('/chat/messages', async (req, res) => {
-  const { matchingID, senderID, receiverID, messageContent } = req.body;
-  if (!matchingID || !senderID || !receiverID || !messageContent) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
-  const insertQuery = `
-    INSERT INTO Messages (MatchingID, SenderID, ReceiverID, MessageContent, SentDate, DeletedContent)
-    VALUES (?, ?, ?, ?, NOW(), NULL)
-  `;
-  try {
-    const [result] = await connection.query(insertQuery, [matchingID, senderID, receiverID, messageContent]);
-    const newMessageId = result.insertId;
-    const newMessage = {
-      MessageID: newMessageId,
-      MatchingID: matchingID,
-      SenderID: senderID,
-      ReceiverID: receiverID,
-      MessageContent: messageContent,
-      SentDate: new Date().toISOString(),
-    };
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN && client.matchingID === matchingID) {
-        client.send(JSON.stringify(newMessage));
-      }
-    });
-    res.status(200).json(newMessage);
-  } catch (error) {
-    console.error('Error inserting message into database:', error);
-    res.status(500).json({ error: 'Error inserting message into database', details: error });
-  }
-});
-
-//채팅 메시지 조회 http api
-app.get('/chat/messages/:matchingID', async (req, res) => {
-  const matchingID = req.params.matchingID;
-  try {
-    const query = 'SELECT * FROM Messages WHERE MatchingID = ? ORDER BY SentDate ASC';
-    const [messages] = await connection.query(query, [matchingID]);
-    if (messages.length > 0) {
-      res.status(200).json({ messages });
-    } else {
-      res.status(404).json({ message: 'No messages found for this matching ID.' });
-    }
-  } catch (error) {
-    console.error('Failed to retrieve messages:', error);
-    res.status(500).json({ message: 'Failed to retrieve messages due to server error.', error });
-  }
-});
-
-//챗봇 제안 기능 제공 http api
-app.post('/chatbot/suggestions', async (req, res) => {
-  const { userId } = req.body;
-
-  try {
-    const [userResult] = await connection.query("SELECT * FROM Users WHERE User_id = ?", [userId]);
-    const userProfile = userResult[0];
-
-    if (!userProfile) {
-      return res.status(404).json({ error: "User not found" });
-    }
-
-    const gptResponse = await openai.createChatCompletion({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "system",
-          content: `Generate conversation starters for someone who likes ${userProfile.Interests}.`,
-        },
-        {
-          role: "user",
-          content: `Generate conversation starters for someone who likes ${userProfile.Interests}.`,
-        },
-      ],
-      max_tokens: 50,
-      n: 3,
-      stop: null,
-      temperature: 0.7,
-    });
-
-    const suggestions = gptResponse.data.choices.map(choice => choice.message.content.trim());
-
-    res.json(suggestions);
-  } catch (error) {
-    console.error('Error fetching chatbot suggestions:', error);
-    res.status(500).json({ error: 'Error fetching chatbot suggestions', details: error });
   }
 });
 

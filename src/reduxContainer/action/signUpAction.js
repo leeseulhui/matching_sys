@@ -18,13 +18,29 @@ return {
   Attractions: attractions
 }
 }
-export const reboot_user_data = (userId, accessToken, name, birth, gender, religion, mbti, interests, attractions) =>{
+export const reboot_user_data = (userId, accessToken, name, birth, profileUrl ,gender, religion, mbti, interests, attractions) =>{
+  if(profileUrl== null || profileUrl== undefined){
+    return{
+      type: "reboot_user_data",
+      User_id: userId,
+      auth_token: accessToken,
+      Username:name,
+      Birthdate:birth,
+      User_profile_image:null,
+      Gender:gender,
+      Religion: religion,
+      MBTI: mbti,
+      Interests: interests,
+      Attractions: attractions
+    }
+  }
 return {
   type: "reboot_user_data",
   User_id: userId,
   auth_token: accessToken,
   Username:name,
   Birthdate:birth,
+  User_profile_image:profileUrl,
   Gender:gender,
   Religion: religion,
   MBTI: mbti,

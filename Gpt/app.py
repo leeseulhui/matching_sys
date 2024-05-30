@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, Blueprint, request, jsonify
 from datetime import datetime
 import os
 from dotenv import load_dotenv
@@ -9,6 +9,7 @@ from flask_cors import CORS
 from io import BytesIO
 import re 
 import json
+from transformers import pipeline
 
 #이미지 캡션 라이브러리
 from azure_service import generate_caption, extract_nouns
@@ -45,14 +46,14 @@ nltk.download('wordnet')
 
 # 얼굴 인식
 from face_detection_check import detect_faces
+
 # 해시태그 분석
 from hash_similarity import similarity_blueprint
-#연결 확인 부분(터미널에 뜨는 곳)
-app = Flask(__name__)
 
 #챗봇
-from transformers import pipeline
+chatbot_bp = Blueprint('chatbot', __name__)
 
+app = Flask(__name__)
 CORS(app)  # 모든 도메인에 요청 허용
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -68,6 +69,7 @@ model = SentenceTransformer('sentence-transformers/paraphrase-mpnet-base-v2')
 
 # 챗봇 모델 로드 (사용자가 제공한 설정에 맞춤)
 sentiment_analyzer = pipeline('sentiment-analysis', model='bert-base-uncased')
+translator = Translator()
 
 try:
     db_connection = mysql.connector.connect(
@@ -309,7 +311,7 @@ def generate_introduction():
         traceback.print_exc()  # 추가된 오류 추적
         return jsonify({'error': f'자기소개서 생성 중 오류 발생: {e}'}), 500
     
-
+#자기소개서 요약
 @app.route('/get_introduction_summary', methods=['POST'])
 def get_introduction_summary():
     data = request.get_json()
@@ -606,6 +608,7 @@ def analyze_images_batch():
     user_id = data['userId']
     image_urls = data['imageUrls']
     arr = []  # 캡션과 명사를 저장하는 리스트
+    all_nouns = []  # 모든 명사를 저장하는 리스트
 
     try:
         for url_info in image_urls:
@@ -643,58 +646,50 @@ def analyze_images_batch():
                 'caption': caption,
                 'nouns': nouns
             })
+            nouns_list = nouns.split()
+            all_nouns.extend(nouns_list)
 
         # 리스트를 JSON 문자열로 변환
         json_data = json.dumps(arr)
+        nounlist = ' '.join(all_nouns)
 
         # 데이터베이스에 저장
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_query = """
-        INSERT INTO image_captions (user_id, image_url, caption)
-        VALUES (%s, %s, %s)
+        INSERT INTO image_captions (user_id, image_url, caption, nouns)
+        VALUES (%s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE
             image_url = VALUES(image_url),
-            caption = VALUES(caption)
+            caption = VALUES(caption),
+            nouns = VALUES(nouns)
         """
-        db_cursor.execute(insert_query, (user_id, url, json_data))
+        db_cursor.execute(insert_query, (user_id, url, json_data, nounlist))
         db_connection.commit()
-        # calculate_similarity_scores(user_id)  # 이 부분은 필요에 따라 주석 해제
+
+        # calculate_similarity_scores 함수 호출
+        logger.info(f"Calling calculate_similarity_scores for user_id: {user_id}")
+        calculate_similarity_scores(user_id)
+
         return jsonify({"captions": arr})  # arr을 반환하여 캡션과 명사 정보를 포함
+
     except Exception as error:
         db_connection.rollback()
         logger.error(f"Error analyzing images: {error}")
         traceback.print_exc()
         return jsonify({"error": "Failed to analyze images", "details": str(error)}), 500
 
-#캡션 유사도 분석 엔드포인트
-@app.route('/api/calculate-similarity', methods=['POST'])
-def calculate_similarity():
-    data = request.json
-    user_id = data.get('userId')
-
-    if not user_id:
-        return jsonify({"error": "Missing userId"}), 400
-
-    calculate_similarity_scores(user_id)
-    return jsonify({"message": "Similarity calculation completed."}), 200
-
+# 캡션의 명사를 가지고 유사도 분석하기
 def calculate_similarity_scores(user_id):
     if not db_connection:
         logger.error('DB 연결 실패')
         return
 
     try:
-        logger.info(f"Calculating similarity for user_id: {user_id}")
-        db_cursor.execute("SELECT caption FROM image_captions WHERE user_id = %s", (user_id,))
-        result = db_cursor.fetchone()
-
-        if not result:
-            logger.error('No captions found for the user')
-            return
-
-        # captions에서 nouns를 추출
-        captions_data = json.loads(result['caption'])
-        new_user_nouns_list = [item['nouns'] for item in captions_data if 'nouns' in item]
+        # 사용자 명사 가져오기
+        db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (user_id,))
+        new_user_nouns_list = [row['nouns'] for row in db_cursor.fetchall() if 'nouns' in row]
+        
+        # 로그 추가
         logger.info(f"New user nouns list: {new_user_nouns_list}")
 
         if not new_user_nouns_list:
@@ -702,47 +697,49 @@ def calculate_similarity_scores(user_id):
             return
 
         new_user_nouns = ' '.join(new_user_nouns_list)
+        
         new_user_embedding = model.encode(new_user_nouns, convert_to_tensor=True)
-        logger.info(f"New user embedding: {new_user_embedding}")
 
-        db_cursor.execute("SELECT DISTINCT user_id FROM image_captions WHERE user_id != %s", (user_id,))
+        # 다른 사용자들의 ID 가져오기
+        db_cursor.execute("SELECT DISTINCT user_id FROM image_captions WHERE user_id != %s ORDER BY RAND() LIMIT 20", (user_id,))
         other_user_ids = [row['user_id'] for row in db_cursor.fetchall()]
-        logger.info(f"Other user IDs: {other_user_ids}")
+        
+        # 로그 추가
+        # logger.info(f"Other user IDs: {other_user_ids}")
 
         for other_user_id in other_user_ids:
-            db_cursor.execute("SELECT caption FROM image_captions WHERE user_id = %s", (other_user_id,))
-            other_result = db_cursor.fetchone()
+            # 다른 사용자 명사 가져오기
+            db_cursor.execute("SELECT nouns FROM image_captions WHERE user_id = %s", (other_user_id,))
+            other_user_nouns_list = [row['nouns'] for row in db_cursor.fetchall() if 'nouns' in row]
 
-            if not other_result:
-                continue
-
-            # other_user의 captions에서 nouns를 추출
-            other_captions_data = json.loads(other_result['caption'])
-            other_user_nouns_list = [item['nouns'] for item in other_captions_data if 'nouns' in item]
-            logger.info(f"Other user nouns list for user {other_user_id}: {other_user_nouns_list}")
+            # 로그 추가
+            logger.info(f"Other user {other_user_id} nouns list: {other_user_nouns_list}")
 
             if not other_user_nouns_list:
                 continue
 
             other_user_nouns = ' '.join(other_user_nouns_list)
             other_user_embedding = model.encode(other_user_nouns, convert_to_tensor=True)
-            logger.info(f"Other user embedding for user {other_user_id}: {other_user_embedding}")
 
-            similarity = util.pytorch_cos_sim(new_user_embedding, other_user_embedding).item()  # 코사인 유사도 계산
-            logger.info(f"User {user_id} and User {other_user_id} similarity: {similarity}")
-            
+            similarity = util.pytorch_cos_sim(new_user_embedding, other_user_embedding).item()  # 코사인 유사도 사용
+
+            # 유사도 점수를 데이터베이스에 저장
             insert_similarity_query = """
             INSERT INTO UserCaptionSimilarity (user_id1, user_id2, similarity_score)
             VALUES (%s, %s, %s)
             ON DUPLICATE KEY UPDATE similarity_score = VALUES(similarity_score)
             """
             db_cursor.execute(insert_similarity_query, (user_id, other_user_id, similarity))
+            logger.info(f"Inserted similarity score between {user_id} and {other_user_id}: {similarity}")
 
         db_connection.commit()
     except Exception as error:
         db_connection.rollback()
         logger.error(f"Error calculating similarity: {error}")
         traceback.print_exc()
+
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 #얼굴 탐지 true/false 반환 엔드포인트
 @app.route('/detect-faces', methods=['POST'])
@@ -769,8 +766,131 @@ def face_detection():
         except PermissionError as e:
             logging.error(f"Error deleting temporary file: {e}")
 
+#챗봇 부분  
+#중복되는 단어 제거            
+def clean_response(text):
+    """중복 단어 제거 및 불필요한 문자 제거"""
+    # 단어 중복 제거
+    words = text.split()
+    cleaned_words = []
+    for i in range(len(words)):
+        if i == 0 or words[i] != words[i-1]:
+            cleaned_words.append(words[i])
+    cleaned_text = ' '.join(cleaned_words)
+    
+    # 문장 끝의 중복 제거
+    cleaned_text = cleaned_text.replace(' 요 요 요 요', ' 요')
+    cleaned_text = cleaned_text.replace(' 요 요', ' 요')
+    cleaned_text = cleaned_text.replace('어요 요', '어요')
+    cleaned_text = cleaned_text.replace('요! 요!', '요!')
 
-#챗봇 부분
+    # 불필요한 문장 부호 제거
+    cleaned_text = cleaned_text.lstrip('- "').rstrip('"')
+    
+    return cleaned_text
+
+def generate_conversation_starters(user_profile):
+    interests = user_profile.get('Interests', '관심사')
+    attractions = user_profile.get('Attractions', '매력')
+
+    prompt = f"""
+    You are Want, a helpful and friendly chatbot. You assist users in starting and maintaining conversations with their matches.
+    The user you're assisting likes {interests} and finds {attractions} attractive.
+    Provide conversation starters in Korean that are casual and engaging, using polite but friendly language.
+    Ensure each sentence follows the subject-verb-object structure and avoid repeating the same words.
+    Do not include greetings like "Hello" or "Hi".
+    Avoid situations where investigations come first and nouns come out.
+    Make sure to create sentences without repeating words like "sometimes, sometimes".
+    Please don't repeat the same investigation at the end of the sentence.
+    Remember, these users have never met before.
+
+    Examples of desired sentences:
+    - "어떤 운동을 즐기세요? 저는 요가해본 적 있어요!"
+    - "어디서 주로 옷 사세요? 스타일이 제 마음에 쏙 들어요!"
+    - "저는 운동하면서 땀 날때 기분 좋더라고요!"
+    - "패션에 관심 많으세요? 저는 다양한 스타일 도전해보는거 좋아해요."
+    - "저는 음악을 들으면 더 힘이 나더라구요."
+    - "옷 잘 입는 비결있으세요?"
+    - "운동할 때 어떤 음악 주로 들으세요? 전 팝송 들으면서 해요."
+    - "운동을 어디서 주로 하시나요?"
+
+    Generate responses in a similar manner.
+    """
+
+    try:
+        gpt_response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "You are Want, a helpful and friendly dating chatbot."},
+                {"role": "user", "content": "What do you enjoy doing in your free time?"},
+                {"role": "assistant", "content": "I love hiking and exploring nature trails. How about you?"},
+                {"role": "user", "content": "What's your favorite type of music?"},
+                {"role": "assistant", "content": "I really enjoy listening to popsong. It helps me relax."},
+                {"role": "user", "content": "Do you like to cook?"},
+                {"role": "assistant", "content": "Yes, I love cooking Italian dishes. Do you have a favorite cuisine?"},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=200,
+            n=1,
+            stop=None,
+            temperature=0.8
+        )
+
+        # GPT-4 응답을 파싱하고 정리
+        responses = gpt_response.choices[0].message['content'].strip().split('\n')
+        cleaned_responses = [clean_response(response.strip()) for response in responses if response.strip()]
+
+        # 번역을 통한 자연스러운 표현 생성
+        translated_responses = []
+        for response in cleaned_responses:
+            if response:
+                translated_text = translator.translate(response, src='en', dest='ko').text
+                translated_responses.append(clean_response(translated_text))
+
+        return translated_responses  # 질문 개수 제한 없음
+
+    except Exception as e:
+        logger.error(f"Error generating conversation starters: {e}")
+        return []
+
+
+@app.route('/chatbot/suggestions', methods=['POST'])
+def get_suggestions():
+    user_data = request.json
+    user_id = user_data['userId']
+    logger.info(f"Received request for user ID: {user_id}")
+
+    cursor = db_connection.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM Users WHERE User_id = %s", (user_id,))
+    user_profile = cursor.fetchone()
+
+    if not user_profile:
+        logger.warning(f"User with ID {user_id} not found")
+        return jsonify({"error": "User not found"}), 404
+
+    try:
+        cursor = db_connection.cursor(dictionary=True)
+        cursor.execute("SELECT * FROM Users WHERE User_id = %s", (user_id,))
+        user_profile = cursor.fetchone()
+
+        if not user_profile:
+            logger.warning(f"User with ID {user_id} not found")
+            return jsonify({"error": "User not found"}), 404
+
+        gpt_suggestions_texts = generate_conversation_starters(user_profile)
+        logger.info(f"Generated suggestions: {gpt_suggestions_texts}")
+
+    except openai.error.OpenAIError as e:
+        logger.error(f"Error from OpenAI: {str(e)}")
+        return jsonify({"error": str(e)}), 500
+    except Exception as e:
+        logger.error(f"Database or other error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+    return jsonify(gpt_suggestions_texts)
+
+
+
 @app.route('/chat/messages/<matchingID>', methods=['GET'])
 def get_messages(matchingID):
     try:
@@ -782,7 +902,7 @@ def get_messages(matchingID):
         else:
             return jsonify({"message": "No messages found for this matching ID."}), 404
     except Exception as error:
-        logger.error('Failed to retrieve messages:', error)
+        print('Failed to retrieve messages:', error)
         return jsonify({"message": "Failed to retrieve messages due to server error.", "error": str(error)}), 500
 
 @app.route('/chat/messages', methods=['POST'])
@@ -814,10 +934,12 @@ def post_message():
         }
         return jsonify(new_message)
     except Exception as error:
-        logger.error('Error inserting message into database:', error)
+        print('Error inserting message into database:', error)
         db_connection.rollback()
         return jsonify({"error": "Error inserting message into database", "details": str(error)}), 500
 
+
 app.register_blueprint(similarity_blueprint)
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6000, debug=True)

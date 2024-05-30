@@ -55,11 +55,16 @@ export default function UserProfileScreen() {
     fetchUserProfile();
   }, []);
   // userProfile이 바뀌었을 때만 실행하는 코드
-  useEffect(()=>{
-    if(changed==true){
-      AsyncStorage.setItem('userDatas',user)
+  useEffect(() => {
+    async function saveAsyncstorageProfile(){
+      await AsyncStorage.setItem('userDatas', JSON.stringify(user));
+      console.log('asyncstorage에 프로필 url 저장 완료',user);
     }
-  },[user])
+    if (changed) {
+      saveAsyncstorageProfile();
+      setChanged(false);
+    }
+  }, [user, changed]);
 
   const handleUpdate = async () => {
     try {

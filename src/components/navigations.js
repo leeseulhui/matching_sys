@@ -39,6 +39,8 @@ import ProfileSuccess from './view/datingprofile/ProfileSuccess';
 import DatingProfileSimilarity from './view/datingprofile/DatingProfileSimilarity';
 import PerfectProfile from './view/datingprofile/PerfectProfile';
 import FaceDetect from './view/FaceDetect';
+import ChatListScreen from './view/ChatListScreen';
+
 
 import { useSelector } from 'react-redux';
 const Stack = createStackNavigator();
@@ -54,34 +56,29 @@ function MainTab() {
           let size = focused ? 30 : 25; 
           if (route.name === 'Home') {
             iconName = focused ? image.home : image.home;
-          } else if (route.name === 'Heart') {
-            iconName = focused ? image.heart : image.heart;
           } else if (route.name === 'Search') {
             iconName = focused ? image.search : image.search;
           } else if (route.name === 'Profile') {
             iconName = focused ? image.profile : image.profile;
-          } else if (route.name === 'Azure') {
-            iconName = focused ? image.azure : image.azure;
+          } else if (route.name === 'ChatList') {
+            iconName = focused ? image.chat : image.chat;
           }
           return <Image source={iconName} style={{ width: size, height: size }} />;
         },
         tabBarStyle: {
-          //하단바 색상
           backgroundColor: '#FEE3E5',
         },
-        headerShown:false, // 헤더 숨김
+        headerShown: false,
       })}
-      // tabBarOptions={{
-      //   showLabel: false,
-      // }}
     >
       <Tab.Screen name="Home" component={MainScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Profile" component={UserProfileScreen} />
-      <Tab.Screen name="차트" component={RadarChart} />
+      <Tab.Screen name="ChatList" component={ChatListScreen} />
     </Tab.Navigator>
   );
 }
+
 // 상대방 이름을 가져오는 함수
 const getPartnerName= async(partnerId)=>{// 상대방 ID를 파라미터로 받아서 처리
   const url = Platform.OS === 'ios' ? 'http://localhost:8080' : 'http://10.0.2.2:8080';// 채팅 리스트를 받기위한 url
@@ -110,7 +107,7 @@ function DrawerMenu(){//드로어 스크린 컴포넌트
       console.log(list);//데이터 확인용 나중에 지우기.
       setChatList(list)//받아온 데이터를 chatList 오브젝트에 저장
     }catch(e){
-      console.error(`fetching Error to chat:${e}`)
+      // console.error(`fetching Error to chat:${e}`)
     }
   }
   getChatList();// 채팅목록을 가져오는 함수 실행
@@ -144,45 +141,43 @@ function DrawerMenu(){//드로어 스크린 컴포넌트
   );
 }
 export default function StackContainer(){
-    return (
-    <NavigationContainer>
-     <Stack.Navigator initialRouteName='로그인' screenOptions={{
-        headerShown: false,
-        headerTintColor: 'white',
-        headerStyle: { backgroundColor: 'tomato' },
-      }}>
-        <Stack.Screen name="로그인" component={LoginScreen}/> 
-        <Stack.Screen name="메인화면" component={DrawerMenu}/>
-        <Stack.Screen name="프로필디자인" component={ProfileDesign}/>
-        <Stack.Screen name="해시테스트" component={HashTest}/>
-        <Stack.Screen name="이상형타입" component={IdealType}/>
-        <Stack.Screen name="이상형결과" component={IdealResult}/>
-        <Stack.Screen name ="데이팅프로필" component={DatingProfileScreen}/>
-        <Stack.Screen name="인스타로그인" component={InstagramSignUp}/>
-        <Stack.Screen name="데이팅테스트" component={DatingProfileScreen}/>
-        <Stack.Screen name="데이팅테스트결과" component={DatingProfileResult}/>
-        <Stack.Screen name="세팅" component={SettingScreen}/>
-        <Stack.Screen name="회원정보입력" component={CommonData}/>
-        <Stack.Screen name="인스타그램피드" component={InstagramScreen}/>
-        <Stack.Screen name="인스타그램피드결과" component={FeedResult} />
-        <Stack.Screen name="이미지" component={ImageScreen}/>
-        <Stack.Screen name="로딩화면" component={ResultLoading} />
-        <Stack.Screen name="채팅시작" component={ChatStart} />
-        <Stack.Screen name="채팅" component={ChatScreen} />
-        <Stack.Screen name="차트" component={RadarChart} />
-        <Stack.Screen name="디자인선택" component={ProfileDesign} />
-        <Stack.Screen name="인스타그램분석" component={StartAnalysis} />
-        <Stack.Screen name="자기소개서성공" component={ProfileSuccess} />
-        <Stack.Screen name="자기소개서매칭" component={DatingProfileSimilarity} />
-        <Stack.Screen name="이상형분석" component={IdealTypeAnalysis} />
-        <Stack.Screen name="얼굴분석" component={Similarity} />
-        <Stack.Screen name="소개서완성본" component={PerfectProfile} />
-        <Stack.Screen name="얼굴인식" component={FaceDetect} />
-
-
-        
-     </Stack.Navigator>
-    </NavigationContainer>
-    );
+  return (
+  <NavigationContainer>
+   <Stack.Navigator initialRouteName='로그인' screenOptions={{
+      headerShown: false,
+      headerTintColor: 'white',
+      headerStyle: { backgroundColor: 'tomato' },
+    }}>
+      <Stack.Screen name="로그인" component={LoginScreen}/> 
+      <Stack.Screen name="메인화면" component={DrawerMenu}/>
+      <Stack.Screen name="프로필디자인" component={ProfileDesign}/>
+      <Stack.Screen name="해시테스트" component={HashTest}/>
+      <Stack.Screen name="이상형타입" component={IdealType}/>
+      <Stack.Screen name="이상형결과" component={IdealResult}/>
+      <Stack.Screen name ="데이팅프로필" component={DatingProfileScreen}/>
+      <Stack.Screen name="인스타로그인" component={InstagramSignUp}/>
+      <Stack.Screen name="데이팅테스트" component={DatingProfileScreen}/>
+      <Stack.Screen name="데이팅테스트결과" component={DatingProfileResult}/>
+      <Stack.Screen name="세팅" component={SettingScreen}/>
+      <Stack.Screen name="회원정보입력" component={CommonData}/>
+      <Stack.Screen name="인스타그램피드" component={InstagramScreen}/>
+      <Stack.Screen name="인스타그램피드결과" component={FeedResult} />
+      <Stack.Screen name="이미지" component={ImageScreen}/>
+      <Stack.Screen name="로딩화면" component={ResultLoading} />
+      <Stack.Screen name="채팅시작" component={ChatStart} />
+      <Stack.Screen name="채팅" component={ChatScreen} />
+      <Stack.Screen name="차트" component={RadarChart} />
+      <Stack.Screen name="디자인선택" component={ProfileDesign} />
+      <Stack.Screen name="인스타그램분석" component={StartAnalysis} />
+      <Stack.Screen name="자기소개서성공" component={ProfileSuccess} />
+      <Stack.Screen name="자기소개서매칭" component={DatingProfileSimilarity} />
+      <Stack.Screen name="이상형분석" component={IdealTypeAnalysis} />
+      <Stack.Screen name="얼굴분석" component={Similarity} />
+      <Stack.Screen name="소개서완성본" component={PerfectProfile} />
+      <Stack.Screen name="얼굴인식" component={FaceDetect} />
+      <Stack.Screen name="채팅목록" component={ChatListScreen} />
+   </Stack.Navigator>
+  </NavigationContainer>
+  );
 }
 // 로그인 - 인스타그램 분석 - 인스타그램 피드 -인스타그램 피드결과 - 데이팅테스트 - 데이팅 테스트 결과- 이상형 결과 - 메인화면

@@ -415,6 +415,45 @@ app.get('/chatItem/:id', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+//매칭이된 사람의 프로필 이미지 받아오기
+app.get('/chatItemProfile/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const fir_query = `
+      SELECT Matching.MatchingID, Matching.User1ID, Matching.User2ID, Users.Username, Users.User_profile_image 
+      FROM Matching 
+      JOIN Users ON Matching.User2ID = Users.User_id 
+      WHERE User1ID = ?;
+    `;
+    const sec_query = `
+      SELECT Matching.MatchingID, Matching.User1ID, Matching.User2ID, Users.Username, Users.User_profile_image 
+      FROM Matching 
+      JOIN Users ON Matching.User1ID = Users.User_id 
+      WHERE User2ID = ?;
+    `;
+
+    const [fir_response, sec_response] = await Promise.all([
+      connection.query(fir_query, [id]),
+      connection.query(sec_query, [id])
+    ]);
+
+    const combined_response = [...fir_response[0], ...sec_response[0]];
+
+    if (combined_response.length > 0) {
+      console.log(combined_response);
+      res.json(combined_response);
+    } else {
+      res.status(404).json({ message: 'No matching found' });
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+
 //채팅 이름 내역 쿼리
 app.get('/chatname/:userId', async (req, res) => {
   const userId = req.params.userId;
@@ -436,7 +475,6 @@ app.get('/chatname/:userId', async (req, res) => {
 
 app.get('/chat/messages/:matchingID', async (req, res) => {
   const matchingID = req.params.matchingID;
-  console.log("---------------------------------------");
   console.log(matchingID);
   try {
     const query = 'SELECT * FROM Messages WHERE MatchingID = ? ORDER BY SentDate ASC';
@@ -465,7 +503,7 @@ app.post('/api/responses', (req, res) => {
         completedQueries++;
         if (error) {
           hasErrors = true;
-          console.error('Database error:', error);
+          console.error('Database error:', error);  
         }
         // 모든 쿼리가 완료되었는지 확인
         if (completedQueries === responses.length) {

@@ -1,84 +1,73 @@
-//로그인 성공 시 넘어가는 페이지
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, Image, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { image, icons } from '../../../assets/image'
+import { image, icons } from '../../../assets/image';
 import axios from 'axios';
 import { useSelector } from 'react-redux';
 import { nodeUrl } from '../../deviceSet';
-const home_tabs = [
-  { name: "Test", screenKey: "나의 연애지식", icon: icons.test },
-  { name: "Dating", screenKey: "데이트소개서", icon: icons.dating },
-  { name: "Love", screenKey: "이상형 찾기", icon: icons.love },
-  { name: "Hashtag", screenKey: "해시태그 분석", icon: icons.hashtag },
-  { name: "Feed", screenKey: "인스타 피드 분석", icon: icons.insta },
-  { name: "Chat", screenKey: "채팅", icon: icons.chat }
-];
 
-const datingTips = [
-  { title: "첫 인상이 중요합니다", description: "첫 만남에서 좋은 인상을 남기세요." },
-  { title: "공통 관심사를 찾아보세요", description: "공통의 관심사가 대화를 더 쉽게 만듭니다." },
-  { title: "진솔하게 대화하세요", description: "솔직한 대화는 관계를 더욱 깊게 만듭니다." },
+const { width, height } = Dimensions.get('window');
+
+const home_tabs = [
+  { name: "Hashtag", screenKey: "매칭", icon: icons.hashtag },
 ];
 
 const MainScreen = () => {
   const navigation = useNavigation();
   const [activeScreen, setActiveScreen] = useState(null);
-  const [username, setUsername] = useState("Loading...");
-  const [similarProfiles, setSimilarProfiles] = useState([]);
-  const userId = useSelector((state) => state.instaUserData.User_id)
+  const [chatList, setChatList] = useState([]);
+  const [error, setError] = useState(null);
+  const userId = useSelector((state) => state.instaUserData.User_id);
+  const scrollViewRef = useRef(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
   useEffect(() => {
-    fetchUsername(userId);
-  }, []);
-
-
-  const fetchUsername = async (userId) => {
-    try {
-      const response = await axios.get(`${nodeUrl}/chatname/${userId}`);
-      if (response.data && response.data.length > 0) {
-        setUsername(response.data[0].Username);  // 가정: 서버가 Username을 배열의 첫 번째 요소로 반환
-      } else {
-        setUsername('Username not found');
+    const getChatList = async () => {
+      try {
+        const response = await axios.get(`${nodeUrl}/chatItemProfile/${userId}`);
+        if (response.data) {
+          console.log(response.data);
+          setChatList(response.data);
+        }
+      } catch (error) {
+        if (error.response && error.response.status === 404) {
+          setError('매칭을 먼저 진행해 주세요.');
+        } else {
+          setError('Failed to fetch chat list');
+        }
       }
-    } catch (error) {
-      console.error('Failed to fetch username:', error);
-      setUsername('Failed to load username');
+    };
+    getChatList();
+  }, [userId]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (scrollViewRef.current) {
+        setCurrentIndex(prevIndex => {
+          const nextIndex = prevIndex + 1 >= chatList.length ? 0 : prevIndex + 1;
+          scrollViewRef.current.scrollTo({ x: nextIndex * width, animated: true });
+          return nextIndex;
+        });
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [chatList]);
+
+  const navigateToDatingProfile = (screenKey) => {
+    if (screenKey === 'Hashtag') {
+      navigation.navigate('해시테스트');
+    } else {
+      console.log('No screen associated');
     }
   };
 
-  // const fetchSimilarProfiles = async () => {
-  //   try {
-  //     const response = await axios.get('http://10.0.2.2:8080/api/profiles/similar');
-  //     setSimilarProfiles(response.data);
-  //   } catch (error) {
-  //     console.error('Failed to fetch profiles:', error);
-  //   }
-  // };
-
-  const navigateToDatingProfile = (screenKey) => {
-    switch (screenKey) {
-      case 'Test':
-        navigation.navigate('데이팅프로필')
-        break;
-      case 'Dating':
-        navigation.navigate('프로필디자인');
-        break;
-      case 'Love':
-        navigation.navigate('이상형타입');
-        break;
-      case 'Hashtag':
-        navigation.navigate('해시테스트');
-        break;
-      case 'Feed':
-        navigation.navigate('인스타그램피드');
-        break;
-      case 'Chat':
-        navigation.navigate('채팅', { matchingID: '71' });  // Pass the matchingID here
-        break;
-      default:
-        console.log('No screen associated');
-        break;
-    }
+  const startChat = (matchingID, partnerId) => {
+    navigation.navigate('채팅', {
+      matchingID: matchingID,
+      userId: userId,
+      matchedUserId: partnerId,
+    });
   };
 
   const renderTab = ({ name, screenKey, icon }, index) => (
@@ -97,90 +86,79 @@ const MainScreen = () => {
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-        <Image source={image.arrowLeft} style={styles.backIcon} />
-      </TouchableOpacity>
-      <View style={styles.additionalFeatures}>
-        <Text style={styles.title}>연애를 시작해볼까요, {username} 님!</Text>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="원하는 키워드를 입력해주세요!"
-          placeholderTextColor="#888"
-        />
-      </View>
-      <View style={styles.tabRow}>
-        {home_tabs.slice(0, 3).map(renderTab)}
-      </View>
-      <View style={styles.tabRow}>
-        {home_tabs.slice(3, 6).map(renderTab)}
-      </View>
-      <ScrollView style={styles.similarUsersContainer}>
-        <Text style={styles.similarUsersTitle}>💭 나와 비슷한 유형을 가진 사람은?</Text>
-        {similarProfiles.map(profile => (
-          <View key={profile.id} style={styles.profileCard}>
-            <Text style={styles.profileName}>{profile.name}</Text>
-            <Text style={styles.profileDetails}>{profile.details}</Text>
-          </View>
-        ))}
-      </ScrollView>
-      <ScrollView
-        style={styles.bannerContainer}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.bannerTitle}>❤️ 데이트 팁 알아보기</Text>
+      {error ? (
+        <View style={styles.noMatchContainer}>
+          <Text style={styles.noMatchText}>{error}</Text>
+        </View>
+      ) : chatList.length === 0 ? (
+        <View style={styles.noMatchContainer}>
+          <Text style={styles.noMatchText}>매칭을 먼저 하세요</Text>
+        </View>
+      ) : (
         <ScrollView
-          horizontal={true}
+          ref={scrollViewRef}
+          horizontal
+          pagingEnabled
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bannerContentContainer}
+          style={styles.scrollView}
         >
-          {datingTips.map((tip, index) => (
-            <View key={index} style={styles.tipCard}>
-              <Text style={styles.tipTitle}>{tip.title}</Text>
-              <Text style={styles.tipDescription}>{tip.description}</Text>
-            </View>
-          ))}
+          {chatList.map((chatItem, index) => {
+            const partnerId = chatItem.User1ID === userId ? chatItem.User2ID : chatItem.User1ID;
+            return (
+              <View key={chatItem.MatchingID} style={styles.profileCard}>
+                <Image source={{ uri: chatItem.User_profile_image }} style={styles.profileImage} resizeMode="cover" />
+                <View style={styles.textContainer}>
+                  <Text style={styles.profileName}>{chatItem.Username}</Text>
+                </View>
+                <TouchableOpacity style={styles.chatButton} onPress={() => startChat(chatItem.MatchingID, partnerId)}>
+                  <Text style={styles.chatButtonText}>💬</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })}
         </ScrollView>
-      </ScrollView>
+      )}
+      <View style={styles.tabRow}>
+        {home_tabs.map(renderTab)}
+      </View>
     </View>
   );
+};
 
-}
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FEE3E5',
   },
-  additionalFeatures: {
-    padding: 20,
-    backgroundColor: '#FEE3E5',
+  noMatchContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  searchInput: {
-    height: 40,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 15,
+  noMatchText: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#333',
-    marginBottom: 10,
   },
   tabRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 10,
+    backgroundColor: '#FEE3E5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   tabItem: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   icon: {
-    width: 50,
-    height: 50,
-    marginBottom: 20,
+    width: 30,
+    height: 30,
+    marginBottom: 5,
   },
   tabLabel: {
     fontSize: 12,
@@ -190,79 +168,65 @@ const styles = StyleSheet.create({
     borderBottomWidth: 3,
     borderColor: '#333',
   },
-  backIcon: {
-    width: 10,
-    height: 10,
-  },
   activeTabLabel: {
     color: '#333',
   },
-  similarUsersContainer: {
-    marginTop: 30,
-    paddingHorizontal: 20,
-  },
-  similarUsersTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 10,
+  scrollView: {
+    flex: 1,
   },
   profileCard: {
-    flexDirection: 'row',
-    marginBottom: 10,
+    width: width - 40,
+    height: height - 200,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#fff',
-    borderRadius: 8,
+    margin: 20,
+    borderRadius: 10,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
     elevation: 3,
+  },
+  profileImage: {
+    width: '100%',
+    height: '100%',
+  },
+  textContainer: {
+    position: 'absolute',
+    bottom: 10,
+    left: 10,
+    right: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    padding: 5,
+    borderRadius: 5,
   },
   profileName: {
-    fontSize: 15,
+    fontSize: 24,
     fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
   },
-  profileDetails: {
-    fontSize: 13,
-    color: '#666',
-  },
-  bannerArea: {
-    paddingLeft: 20,
-  },
-  bannerTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#333',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-  },
-  bannerContent: {
+  chatButton: {
+    position: 'absolute',
+    bottom: 20,
+    right: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    justifyContent: 'center',
     alignItems: 'center',
-  },
-  tipCard: {
-    width: 170,
-    height: 100,
-    borderRadius: 10,
-    padding: 10,
-    marginLeft: 10,
-    marginRight: 5,
-    marginTop: 10,
-    backgroundColor: 'rgba(255, 250, 240, 0.6)',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 6,
-    elevation: 3,
+    elevation: 5,
   },
-  tipTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
+  chatButtonText: {
+    fontSize: 24,
     color: '#333',
-  },
-  tipDescription: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 10,
-    marginBottom: 10,
   },
 });
 

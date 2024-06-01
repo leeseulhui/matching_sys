@@ -1,258 +1,188 @@
-import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Image,
-  TouchableOpacity,
-  ScrollView,
-  Alert,
-  Button,
-} from 'react-native';
-import { launchImageLibrary } from 'react-native-image-picker';
-import { flaskUrl, nodeUrl } from '../../deviceSet'; // 플라스크, 노드 요청 url 추가
-import { useDispatch, useSelector } from 'react-redux';
-import { update_user_profile_image } from '../../reduxContainer/action/signUpAction';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/native';
+  import React, { useState } from 'react';
+  import {
+    View,
+    Text,
+    Image,
+    TouchableOpacity,
+    Alert,
+    ActivityIndicator,
+    Button,
+    StyleSheet,
+    Modal
+  } from 'react-native';
+  import { launchImageLibrary } from 'react-native-image-picker';
+  import { flaskUrl, fullHeight, fullWidth, nodeUrl } from '../../deviceSet';
+  import { useDispatch, useSelector } from 'react-redux';
+  import { update_user_profile_image } from '../../reduxContainer/action/signUpAction';
+  import AsyncStorage from '@react-native-async-storage/async-storage';
+  import { useNavigation } from '@react-navigation/native';
+  // import {startAnalysis} from './StartAnalysis';
 
-const FaceDetect = () => {
-  const dispatch = useDispatch();
-  const user = useSelector((state) => state.instaUserData); // 유저데이터 확인
-  const navigation = useNavigation(); // 네비게이션 훅 추가
-  const [images, setImages] = useState([]);
-  const [selectedImage, setSelectedImage] = useState(null);
-  const [profileUpdated, setProfileUpdated] = useState(false);
-
-  const selectImages = () => {
-    const options = { mediaType: 'photo', quality: 1, selectionLimit: 5 };
-    launchImageLibrary(options, async (response) => {
-      if (response.didCancel) {
-        console.log('User cancelled image picker');
-      } else if (response.error) {
-        console.log('ImagePicker Error: ', response.error);
-      } else {
-        const selectedImages = response.assets;
-        const validImages = [];
-
-        for (const img of selectedImages) {
-          const source = img.uri;
+  const FaceDetect = () => {
+    const dispatch = useDispatch();
+    const user = useSelector((state) => state.instaUserData);
+    const navigation = useNavigation();
+    const [selectedImage, setSelectedImage] = useState(null);
+    const [profileUpdated, setProfileUpdated] = useState(false);
+    const [analysis, setAnalysis] =useState(false);
+    const selectImages = () => {
+      const options = { mediaType: 'photo', quality: 1, selectionLimit: 1 };
+      launchImageLibrary(options, async (response) => {
+        if (response.didCancel) {
+          console.log('User cancelled image picker');
+        } else if (response.errorCode) {
+          console.log('ImagePicker Error: ', response.errorMessage);
+        } else {
+          setAnalysis(true);
+          const selectedImage = response.assets[0];
           const data = new FormData();
           data.append('profileImage', {
-            name: img.fileName,
-            type: img.type,
-            uri: source,
+            name: selectedImage.fileName,
+            type: selectedImage.type,
+            uri: selectedImage.uri,
           });
 
           try {
-            const response = await fetch(`${flaskUrl}/detect-faces`, {
+            const res = await fetch(`${flaskUrl}/detect-faces`, {
               method: 'POST',
               body: data,
-              headers: {
-                'Content-Type': 'multipart/form-data',
-              },
             });
 
-            if (!response.ok) {
-              throw new Error(`Failed to upload image. Status: ${response.status}`);
+            if (!res.ok) {
+              throw new Error(`Failed to upload image. Status: ${res.status}`);
             }
 
-            const result = await response.json();
+            const result = await res.json();
             if (result.result) {
-              validImages.push(source);
+              handleSetProfileImage(selectedImage.uri);
+            } else {
+              Alert.alert('No face detected', 'Please select another image.');
             }
           } catch (error) {
             console.error('Error uploading image:', error);
+            Alert.alert('Error', 'Failed to process image. Please try again.');
           }
         }
-
-        if (validImages.length > 0) {
-          setImages(validImages);
-        } else {
-          Alert.alert('No valid images found', 'No faces were detected in the selected images.');
-        }
-      }
-    });
-  };
-
-  const handleSetProfileImage = async (imageUri) => {
-    const data = new FormData();
-    data.append('profileImage', {
-      name: 'profile.jpg',
-      type: 'image/jpeg',
-      uri: imageUri,
-    });
-    data.append('userId', user.User_id);
-
-    try {
-      const response = await fetch(`${nodeUrl}/upload-profile-image`, {
-        method: 'POST',
-        body: data,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
       });
+    };
 
-      if (!response.ok) {
-        throw new Error(`Failed to upload image. Status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      setSelectedImage(imageUri);
-      dispatch(update_user_profile_image(result.imageUrl));
-      AsyncStorage.setItem('userDatas', JSON.stringify(user));
-      setProfileUpdated(true);
-      Alert.alert('Success', 'Profile image updated successfully');
-    } catch (error) {
-      console.error('Error uploading profile image:', error);
-      Alert.alert('Error', 'Failed to update profile image');
-    }
-  };
-
-  const handleNavigation = () => {
-    navigation.navigate('인스타그램분석');
-  };
-
-  const renderImageBoxes = () => {
-    let imageBoxes = [];
-
-    if (selectedImage) {
-      imageBoxes.push(
-        <View style={styles.profileImageContainer} key="selected">
-          <Image source={{ uri: selectedImage }} style={styles.profileImage} />
-        </View>
-      );
-    } else {
-      imageBoxes.push(
-        <View style={styles.profileImageContainer} key="placeholder">
-          <Text style={styles.placeholderText}>대표 이미지 선택</Text>
-        </View>
-      );
-    }
-
-    images
-      .filter((imageUri) => imageUri !== selectedImage)
-      .forEach((imageUri, index) => {
-        if (index < 4) {
-          imageBoxes.push(
-            <TouchableOpacity key={index} onPress={() => handleSetProfileImage(imageUri)}>
-              <Image source={{ uri: imageUri }} style={styles.otherImage} />
-            </TouchableOpacity>
-          );
-        }
+    const handleSetProfileImage = async (imageUri) => {
+      const data = new FormData();
+      data.append('profileImage', {
+        name: 'profile.jpg',
+        type: 'image/jpeg',
+        uri: imageUri,
       });
+      data.append('userId', user.User_id);
 
-    // 빈 칸 추가
-    while (imageBoxes.length < 5) {
-      imageBoxes.push(
-        <View style={styles.otherImage} key={`empty-${imageBoxes.length}`}></View>
-      );
-    }
+      try {
+        const res = await fetch(`${nodeUrl}/upload-profile-image`, {
+          method: 'POST',
+          body: data,
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        });
 
-    return imageBoxes;
-  };
+        if (!res.ok) {
+          throw new Error(`Failed to upload image. Status: ${res.status}`);
+        }
 
-  return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.imagesWrapper}>
-          <View style={styles.profileImageWrapper}>
-            {renderImageBoxes().slice(0, 1)}
-          </View>
-          <View style={styles.otherImagesWrapper}>
-            {renderImageBoxes().slice(1, 3)}
-          </View>
-          <View style={styles.otherImagesWrapper}>
-            {renderImageBoxes().slice(3)}
-          </View>
+        const result = await res.json();
+        setSelectedImage(imageUri);
+        dispatch(update_user_profile_image(result.imageUrl));
+        await AsyncStorage.setItem('userDatas', JSON.stringify(user));
+        setProfileUpdated(true);
+        setAnalysis(false);
+        Alert.alert('Success', 'Profile image updated successfully');
+      } catch (error) {
+        console.error('Error uploading profile image:', error);
+        Alert.alert('Error', 'Failed to update profile image');
+      }
+    };
+
+    const renderImageBox = () => (
+      <TouchableOpacity onPress={selectImages}>
+        <View style={styles.profileImageContainer}>
+          {selectedImage ? (
+            <Image source={{ uri: selectedImage }} style={styles.profileImage} />
+          ) : (
+            <Text style={styles.placeholderText}>+</Text>
+          )}
         </View>
-        {profileUpdated && (
-          <View style={styles.buttonContainer}>
-            <Button title="인스타그램분석" onPress={handleNavigation} />
-          </View>
-        )}
-      </ScrollView>
-      {!profileUpdated && (
-        <TouchableOpacity style={styles.selectButton} onPress={selectImages}>
-          <Text style={styles.selectButtonText}>프로필 사진 선택</Text>
+      </TouchableOpacity>
+    );
+    
+    return (
+      <View style={styles.container}>
+          {analysis && (
+             <Modal
+             visible={analysis}
+             transparent={true}
+             animationType="fade"
+           >
+            <View style={styles.modalView}>
+              <ActivityIndicator size="large" color={"#F2ACAC"} /> 
+              </View>
+            </Modal>
+          )}
+        <View style={{alignItems:"center",}}>
+          <Text style={{fontSize:18, color:"#F2ACAC",fontWeight:"400", marginBottom: 10 }}>원트에 등록할 프로필 사진을 선택할 차례에요!</Text>
+          <Text style={{fontSize:14, color:"#F2ACAC",fontWeight:"bold", marginBottom: fullHeight*0.1 }}>회원님의 얼굴을 잘 보이도록 사진을 올려주세요</Text>
+        </View> 
+        {renderImageBox()}
+        {!selectedImage && 
+        <Text
+          style={{color:"#F2ACAC", fontSize:18, fontWeight:"300"}}
+        >회원님의 프로필을 등록해주세요</Text>}
+        {profileUpdated && 
+        <TouchableOpacity 
+        style={{backgroundColor:"#F2ACAC", width:fullWidth*0.8, height:50, alignItems:"center", justifyContent:"center", borderRadius:20,}} 
+        onPress={()=> {
+         navigation.navigate('인스타그램분석')
+        }}
+        >
+          <Text style={{color:"#373737"}}>Next</Text>
         </TouchableOpacity>
-      )}
-    </View>
-  );
-};
+        }
+      </View>
+    );
+  };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fde4e4', // 연한 분홍색 배경
-  },
-  scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  selectButton: {
-    backgroundColor: '#ff6f61',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
-    position: 'absolute',
-    bottom: 30,
-    alignSelf: 'center',
-  },
-  selectButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  imagesWrapper: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  profileImageWrapper: {
-    marginBottom: 20,
-  },
-  otherImagesWrapper: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  profileImageContainer: {
-    width: 150,
-    height: 150,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#ccc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  profileImage: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 10,
-  },
-  placeholderText: {
-    textAlign: 'center',
-    color: '#ccc',
-  },
-  otherImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#ccc',
-    margin: 10,
-    backgroundColor: '#fff',
-  },
-  buttonContainer: {
-    marginTop: 20,
-  },
-});
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#373737',
+    },
+    profileImageContainer: {
+      width: fullWidth*0.4,
+      height: fullWidth*0.4,
+      borderRadius: 85,
+      borderWidth: 4,
+      borderColor: '#F2ACAC',
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: '#fff',
+      marginBottom:fullHeight*0.1
+    },
+    profileImage: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 85,
+    },
+    placeholderText: {
+      textAlign: 'center',
+      color: '#ccc',
+      fontSize: 32,
+    },
+    modalView: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)' // 반투명 배경
+    },
+  });
 
-export default FaceDetect;
+  export default FaceDetect;

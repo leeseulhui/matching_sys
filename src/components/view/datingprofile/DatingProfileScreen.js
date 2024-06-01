@@ -183,10 +183,10 @@ const DatingProfileScreen = ({ navigation }) => {
 
   return (
     <LinearGradient
-      colors={['#FFAFBD80', '#FFC3A080']}
+      colors={['#373737', '#F2ACAC']}
       style={styles.container}
       start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
+      end={{ x: 0, y: 1 }}
     >
       <ScrollView contentContainerStyle={styles.scrollView}>
         <View style={styles.questionContainer}>
@@ -239,12 +239,12 @@ const styles = StyleSheet.create({
   questionIcon: {
     fontSize: 25,
     fontWeight: 'bold',
-    color: 'black',
+    color: '#FFFFFF',
     marginRight: 10,
     marginBottom: 10,
   },
   questionText: {
-    color: 'black',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
     flexShrink: 1,
@@ -255,6 +255,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     opacity: 0.8,
     marginBottom: 10,
+    borderWidth:2,
+    borderColor:"#F2ACAC"
   },
   optionTextUnselected: {
     color: 'gray',
@@ -290,15 +292,17 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     marginTop: 20,
+    
   },
   skipButtonText: {
-    color: '#000000',
+    color: '#595858',
     fontSize: 16,
     textAlign: 'center',
   },
   otherInput: {
-    borderWidth: 1,
-    borderColor: 'gray',
+    borderWidth: 2,
+    borderColor: '#FFFFFF ',
+    color:"#373737",
     borderRadius: 5,
     padding: 10,
     marginTop: 10,

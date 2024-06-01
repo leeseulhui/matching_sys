@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, Image, FlatList, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fetchInstagramMedia } from '../fetchInstagramPosts';
-import { baseURL, flaskUrl } from '../../deviceSet';
+import LinearGradient from 'react-native-linear-gradient';
+import { baseURL, flaskUrl, status_top } from '../../deviceSet';
 import { useSelector } from 'react-redux'; //리덕스의 저장된 상태를 꺼내는 훅
 
 const InstagramScreen = () => {
@@ -126,7 +127,7 @@ const InstagramScreen = () => {
         numColumns={3}
       />
       <TouchableOpacity onPress={saveImagesToDatabase} style={styles.button}>
-        <Text style={styles.buttonText}>선택 완료</Text>
+        <Text style={styles.buttonText}>Next</Text>
       </TouchableOpacity>
     </View>
   );
@@ -135,7 +136,7 @@ const InstagramScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    backgroundColor:"#373737"
   },
   loadingContainer: {
     flex: 1,
@@ -144,12 +145,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F7F7', // 배경색 추가
   },
   header: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
     textAlign: 'center',
     marginVertical: 20,
-    marginTop: 60,
-    color: '#333',
+    marginTop: status_top+100,
+    color: '#F2ACAC',
   },
   imageContainer: {
     flex: 1,
@@ -162,23 +163,28 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 10,
+    borderWidth:2,
+    borderColor:"#FFFFFF"
   },
   unselectedImage: {
     opacity: 0.5,
   },
   selectedImage: {
     opacity: 1,
+  
   },
   button: {
-    backgroundColor: '#FF9CB4',
+    backgroundColor: '#FFFFFF',
     padding: 15,
     borderRadius: 10,
     margin: 20,
     alignItems: 'center',
+
   },
   buttonText: {
-    color: 'white',
-    fontSize: 16,
+    fontWeight:"700", 
+    color: '#F2ACAC',
+    fontSize: 20,
   },
   loadingText: {
     marginTop: 20,
@@ -186,6 +192,10 @@ const styles = StyleSheet.create({
     color: '#333',
     fontWeight: '600',
     textAlign: 'center',
+  },background: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

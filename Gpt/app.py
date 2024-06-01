@@ -153,7 +153,7 @@ def save_response():
 
 
 
-#자기소개서 생성
+# 자기소개서 생성
 @app.route('/generate_introduction', methods=['POST'])
 def generate_introduction():
     data = request.get_json()
@@ -163,10 +163,16 @@ def generate_introduction():
         return jsonify({'error': 'No data provided'}), 400
 
     user_id = data.get('userId')
+    responses = data.get('responses')
+    answerList = []
 
     if not user_id:
         app.logger.error("Missing userId in the data")
         return jsonify({'error': 'Missing userId'}), 400
+
+    if responses is None or not isinstance(responses, list):
+        app.logger.error("Invalid or missing responses data")
+        return jsonify({'error': 'Invalid responses data'}), 400
 
     try:
         user_query = "SELECT Username FROM Users WHERE User_id = %s"
@@ -176,130 +182,87 @@ def generate_introduction():
             return jsonify({'error': 'User not found'}), 404
         username = user_result[0]
 
-        response_query = "SELECT Category, QuestionIndex, Answer FROM UserResponses WHERE User_id = %s"
-        db_cursor.execute(response_query, (user_id,))
-        responses = db_cursor.fetchall()
+        # responses 리스트에서 answer 데이터를 하나씩 가져와서 처리
+        for response in responses:
+            if 'answer' in response:
+                answer = response.get('answer')
+                answerList.append(answer)
+                # 로그 추가: answerList에 데이터가 추가될 때마다 로그 출력
+                app.logger.debug(f"Updated answerList: {answerList}")
+            else:
+                app.logger.error("Missing 'answer' in one of the responses")
 
-        if not responses:
-            return jsonify({'error': 'No responses found for this user'}), 404
-
-        # 질문에 맞게 프롬프트 생성
-        question_map = {
-            "사랑": [
-                "What is the most important characteristic of an ideal partner?",
-                "In what situation do you feel the most attraction to your partner?"
-            ],
-            "일": [
-                "What do you think is the most important aspect of a job?"
-            ],
-            "식사": [
-                "What type of cuisine do you prefer?"
-            ],
-            "놀이": [
-                "What do you usually do in your free time?"
-            ],
-            "사고": [
-                "How do you prefer to solve everyday problems?",
-                "What is the most important value in your life?"
-            ]
-        }
-        messages = [
-            {
-                "role": "system",
-                "content": "You are an AI assistant with a talent for crafting engaging and attractive dating profiles. "
-                        "Your task is to work with users to create captivating and authentic profiles, highlighting their unique qualities and interests. "
-                        "Encourage users to share their personal stories and preferences, and build upon them to create a compelling and relatable dating introduction. "
-                        "Please ensure that the introduction is fluent, natural, and free of repetitive expressions. "
-                        "Avoid using the same words repeatedly. "
-                        "The introduction should be warm, personable, and suitable for a dating profile."
-            },
-            {
-                "role": "user",
-                "content": f"Create a dating profile introduction for a user named {username} based on the following information:"
-            }
-        ]
-
-
-        for category, question_index, answer in responses:
-            question = question_map[category][question_index]
-        messages.append({"role": "user", "content": f"{question}: {answer}"})
-
-        messages.append({
-            "role": "system",
-            "content": """
-            Create a detailed, engaging, and attractive dating profile introduction based on the provided information. 
-            Ensure the introduction is fluent and natural, and avoid repeating words. 
-            The introduction should be inviting and relatable, with a clear flow and natural language. 
-            Divide the introduction into clear paragraphs for better readability. 
-            Here's an example of a well-structured introduction:
-                         
-            <Example>
-            저는 이성을 볼 때 저와 가치관이 얼마나 잘 맞는지와 유머러스한지를 봅니다! 
-            외형적인 모습보다는 내면적인 모습을 더 집중적으로 봐요 👀
-            저는 요리법을 가장 중요시 여기기 때문에, 야근이 잦은 일을 하시는 분들은 원치 않습니다.
-            또한 가리는 음식 유형은 없지만 특히!! 한식을 좋아합니다. 그 중 순두부찌개를 가장 좋아하고 잘 만들어요! 그래서 같이 요리를 할 수 있는 분이면 더 좋을 것 같습니다 🍲
-            여가시간에는 주로 평일에 일에 치여 읽지 못했던 읽고 싶었던 책을 읽거나, 운동을 하면서 스트레스를 풉니다. 운동은 러닝을 좋아하고 자주 하는 편이에요! 여행도 종종 가는 편입니다!
-            저는 계획적이지 않기 때문에 계획적인 분이시라면 더 호감이 갈 것 같습니다.
-            여행을 할 때 모든걸 즉흥적으로 하지는 않지만, 계획을 세세하게 짜 놓는 편은 아닙니다.
-
-            이런 저와 비슷한 분이 계시다면 쪽지를 주세요! 대화를 통해 서로 더 알아가면 좋을 것 같습니다! 💪
-            """})
+        user_prompt = f"""Q: 아래의 회원님의 성향을 바탕으로 회원님의 소개서를 작성해줘.
+                            회원님 이름 :{username}
+                            1. 이상적인 연인의 가장 중요한 특성은 무엇인가요? : {answerList[0]}
+                            2. 어떤 상황에서 연인에게 가장 큰 매력을 느끼나요? : {answerList[1]}
+                            3. 직업에 있어 가장 중요하다고 생각하는 것은 무엇인가요? : {answerList[2]}
+                            4. 어떤 유형의 음식을 선호하나요? : {answerList[3]}
+                            5. 여가 시간에 주로 무엇을 하나요? : {answerList[4]}
+                            6. 일상에서 마주하는 문제를 해결할 때 어떤 방식을 선호하나요? : {answerList[5]}
+                            7. 인생에서 가장 중요한 가치는 무엇인가요? : {answerList[6]}"""
 
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            max_tokens=200,
-            temperature=0.7,
-            n=1
+            model="gpt-4o",
+            messages=[
+               {"role": "system", "content": """역할은 연애 상담사이고 해야하는 일은 회원님의 이상형 정보를 바탕으로 회원님의 소개서를 작성하는 것이야.
+                                                회원님 이름: 강구용
+                                                Q: 아래의 회원님의 성향을 바탕으로 회원님의 소개서를 작성해줘.
+                                                1. 이상적인 연인의 가장 중요한 특성은 무엇인가요? : 성격
+                                                2. 어떤 상황에서 연인에게 가장 큰 매력을 느끼나요? : 대화가 잘 통할 때
+                                                3. 직업에 있어 가장 중요하다고 생각하는 것은 무엇인가요? : 급여
+                                                4. 어떤 유형의 음식을 선호하나요? : 한식
+                                                5. 여가 시간에 주로 무엇을 하나요? : 영화보기
+                                                6. 일상에서 마주하는 문제를 해결할 때 어떤 방식을 선호하나요? : 계획적으로
+                                                7. 인생에서 가장 중요한 가치는 무엇인가요? : 가족"""},
+                {"role": "user", "content": """A:
+안녕하세요! 저는 따뜻하고 이해심 많은 사람을 찾고 있는 강구용입니다. 서로의 이야기를 경청하고, 공감할 수 있는 성격을 가진 분에게 가장 큰 매력을 느껴요. 대화가 잘 통할 때 진정한 소통이 가능하다고 믿습니다. 직업에서는 급여가 중요한 만큼, 안정적이고 책임감 있는 삶을 추구합니다.
+
+저는 한식을 특히 좋아해서 주말에는 맛집 탐방을 즐겨요. 다양한 한식 요리를 경험하며 행복을 느낍니다. 여가 시간에는 주로 영화를 보며 휴식을 취하고, 새로운 영화와 클래식을 가리지 않고 다양한 장르를 즐깁니다. 문제를 해결할 때는 항상 계획적으로 접근하여, 꼼꼼하고 체계적으로 해결하는 편입니다.
+
+무엇보다도 가족을 소중히 여기는 가치관을 가지고 있어요. 가족과 함께하는 시간이 가장 행복한 순간이며, 그런 가치관을 공유할 수 있는 사람과 인연을 맺고 싶습니다. 이런 저와 잘 맞는 분과 함께 소중한 추억을 만들어 나가기를 기대합니다!"""},
+ {"role": "system", "content": """
+Q: 아래의 회원님의 성향을 바탕으로 회원님의 소개서를 작성해줘.
+  회원님이름: 이슬희
+1. 이상적인 연인의 가장 중요한 특성은 무엇인가요? : 가치관
+2. 어떤 상황에서 연인에게 가장 큰 매력을 느끼나요? : 외면이 이상형과 맞을 때 
+3. 직업에 있어 가장 중요하다고 생각하는 것은 무엇인가요? : 워라벨
+4. 어떤 유형의 음식을 선호하나요? : 일식
+5. 여가 시간에 주로 무엇을 하나요? : 여행
+6. 일상에서 마주하는 문제를 해결할 때 어떤 방식을 선호하나요? : 계획적으로
+7. 인생에서 가장 중요한 가치는 무엇인가요? : 사회적 인정"""},
+ {"role": "user", "content": """A:
+안녕하세요! 저는 마음이 따뜻한 사람을 찾고 있는 이슬희이에요. 서로의 외모가 이상형과 맞아떨어지는 순간, 두근두근하는 설렘을 느끼곤 하죠. 직업에서는 워라벨을 소중히 여겨서, 일과 삶의 조화를 중요하게 생각해요.
+
+일식을 너무 좋아해서 주말마다 새로운 일식 맛집을 찾아다니며 작은 행복을 즐겨요. 여가 시간에는 여행을 다니며 새로운 곳을 탐험하고, 다양한 문화를 경험하는 걸 좋아해요. 문제를 해결할 때는 항상 계획적으로 접근해서, 차근차근 풀어나가는 스타일이에요.
+
+인생에서 가장 중요한 가치는 사회적 인정이에요. 주변 사람들로부터 존중받고 인정받는 것이 큰 의미가 있죠. 이런 가치관을 공유할 수 있는 분과 함께, 따뜻한 추억을 쌓아가고 싶어요. 저와 함께할 인연을 기다리고 있어요!"""},
+{"role":"system","content":"""Q: 아래의 회원님의 성향을 바탕으로 회원님의 소개서를 작성해줘.
+ 회원님 이름: 박기표
+1. 이상적인 연인의 가장 중요한 특성은 무엇인가요? : 생활방식
+2. 어떤 상황에서 연인에게 가장 큰 매력을 느끼나요? : 특정 행동
+3. 직업에 있어 가장 중요하다고 생각하는 것은 무엇인가요? : 자기계발
+4. 어떤 유형의 음식을 선호하나요? : 양식
+5. 여가 시간에 주로 무엇을 하나요? : 책 읽기
+6. 일상에서 마주하는 문제를 해결할 때 어떤 방식을 선호하나요? : 주변의 조언을 구해서
+7. 인생에서 가장 중요한 가치는 무엇인가요? : 명예"""},{"role":"user","content":"""A:
+안녕하세요! 저는 비슷한 생활방식을 공유할 수 있는 사람을 찾고 있는 박기표에요. 작은 행동 하나에도 배려와 따뜻함이 느껴질 때, 그 사람에게 깊은 매력을 느끼곤 합니다. 직업에서는 자기계발을 중요하게 생각해서, 항상 스스로를 발전시키고자 노력해요.
+
+양식을 좋아해서 다양한 양식 요리를 시도하는 걸 즐깁니다. 여가 시간에는 주로 책을 읽으며 새로운 지식과 영감을 얻고 있어요. 문제를 해결할 때는 주변의 조언을 구하며, 여러 사람의 의견을 듣고 최선의 방법을 찾는 편이에요.
+
+인생에서 가장 중요한 가치는 명예입니다. 스스로에게 자부심을 가질 수 있는 삶을 살고, 주변 사람들로부터 존경받는 것이 중요하다고 생각해요. 이런 가치관을 공유할 수 있는 분과 함께, 서로에게 긍정적인 영향을 주며 살아가고 싶어요. 저와 함께할 인연을 기다리고 있어요!"""},
+{"role":"system","content":user_prompt}
+            ]
         )
+        print(response)
+        introduction = response.choices[0].message['content'].strip()
+        print(introduction)
+        return jsonify({'introduction': introduction})
 
-        generated_introduction = response.choices[0].message['content'].strip()
-
-        # Remove repetitive expressions and extra spaces
-        formatted_introduction = re.sub(r'\b(\w+)\b(?=\s+\1\b)', r'\1', generated_introduction)
-        formatted_introduction = re.sub(r'(\s*\b\w+\b\s*)\1+', r'\1', formatted_introduction)  # Remove adjacent duplicates
-        formatted_introduction = re.sub(r'\s+', ' ', formatted_introduction).strip()
-
-        # Split into paragraphs for better readability
-        formatted_introduction = '\n\n'.join(re.split(r'(?<=\.) ', formatted_introduction))
-
-        summary_messages = [
-        {"role": "system", "content": "You are a sophisticated dating matching assistant. Your task is to extract key information from a user-provided introduction, emphasizing clear, concise language."},
-        {"role": "system", "content": "Identify the main characteristics, hobbies, and preferences of the user."},
-        {"role": "system", "content": "Summarize the introduction into three clear and concise paragraphs, focusing on key details."},
-        {"role": "user", "content": f"Summarize the following text in three concise paragraphs, highlighting the key aspects:\n\n{formatted_introduction}"}
-    ]
-
-        summary_response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=summary_messages,
-            max_tokens=100,
-            temperature=0.7,
-            n=1
-        )
-        summary = summary_response.choices[0].message['content'].strip()
-
-        translator = Translator()
-        translated_introduction = translator.translate(formatted_introduction, src='en', dest='ko').text
-        translated_summary = translator.translate(summary, src='en', dest='ko').text
-
-        current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        insert_intro_query = """
-        INSERT INTO SelfIntroductions (User_id, Title, Content, CreationDate, LastModifiedDate, Summary)
-        VALUES (%s, %s, %s, %s, %s, %s)
-        ON DUPLICATE KEY UPDATE Content = VALUES(Content), LastModifiedDate = VALUES(LastModifiedDate), Summary = VALUES(Summary)
-        """
-        insert_intro_data = (user_id, '데이트 자기소개서', translated_introduction, current_time, current_time, translated_summary)
-        db_cursor.execute(insert_intro_query, insert_intro_data)
-
-        db_connection.commit()
-
-        return jsonify({'introduction': translated_introduction, 'summary': translated_summary}), 200
     except Exception as e:
-        db_connection.rollback()
-        app.logger.error(f"자기소개서 생성 중 오류 발생: {e}")
-        traceback.print_exc()  # 추가된 오류 추적
-        return jsonify({'error': f'자기소개서 생성 중 오류 발생: {e}'}), 500
+        app.logger.error(f"Error processing data: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 
 
 @app.route('/get_introduction_summary', methods=['POST'])

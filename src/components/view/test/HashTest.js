@@ -196,15 +196,15 @@ const HashTest = () => {
           <>
             {error && <Text style={styles.error}>{error}</Text>}
             <View style={styles.section}>
-              <View style={styles.card}>
+              <View style={styles.user}>
                 <Text style={styles.title}>나의 해시태그</Text>
-                <View style={styles.hashTagContainer}>
+                <View style={styles.userCard}>
                   <HashTagCloud hashTags={hashTags} />
                 </View>
               </View>
             </View>
             <View style={styles.section}>
-              <Text style={styles.subTitle}>🔽 원트님과 잘 맞는 상대 원트님들을 보여드려요 🔽</Text>
+              <Text style={styles.subTitle}>원트님과 잘맞는 원트님들이에요! </Text>
               {similarUsers.map((user, index) => (
                 <View key={index} style={styles.userCard}>
                   <Text style={styles.userName}>{user.name}</Text>
@@ -226,8 +226,9 @@ const HashTest = () => {
 const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
-    paddingTop: status_top + 20,
-    backgroundColor: '#ffe4e1',
+    paddingTop: status_top + 40,
+    backgroundColor: '#212121',
+    opacity : 20
   },
   container: {
     flex: 1,
@@ -243,7 +244,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#FF9CB4',
+    color: '#FFEBEE',
   },
   section: {
     flex: 1,
@@ -251,23 +252,23 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   title: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: 'black',
+    fontSize: 20,
+    fontWeight: '100',
+    color: '#FFEBEE',
     marginTop: 40,
     marginBottom: 20,
     textAlign: 'center',
   },
   subTitle: {
     fontSize: 15,
-    fontWeight: 'bold',
-    color: 'black',
+    fontWeight: '100',
+    color: '#FFEBEE',
     marginTop: 50,
     marginBottom: 10,
     textAlign: 'center',
   },
   hashTagContainer: {
-    backgroundColor: 'white',
+    backgroundColor: 'rgb(255,255,255,0.2)',
     borderRadius: 10,
     padding: 10,
     marginBottom: 5,
@@ -279,11 +280,11 @@ const styles = StyleSheet.create({
 
   },
   userCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
     borderRadius: 10,
     padding: 10,
     marginBottom: 10,
-    shadowColor: '#000',
+    shadowColor: '#FFEBEE',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
@@ -292,13 +293,15 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    color: '#424242',
+    fontWeight: '400',
     marginBottom: 10,
   },
   userSimilarity: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: 'black',
+    fontSize: 15,
+    marginTop : 10,
+    fontWeight: '300',
+    color: '#FFEBEE',
   },
   error: {
     fontSize: 16,

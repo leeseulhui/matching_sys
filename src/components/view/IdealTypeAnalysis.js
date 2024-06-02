@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { baseURL } from '../../../deviceSet';
+import { baseURL } from '../../deviceSet';
 import { useRoute, useNavigation } from '@react-navigation/native';
 
 const IdealTypeAnalysis = () => {

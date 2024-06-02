@@ -49,13 +49,13 @@ const DatingProfileResult = ({ route, navigation }) => {
         <ActivityIndicator size="large" color="#FFC3A0" style={styles.loadingIndicator} />
       ) : (
         <>
-          <Text style={styles.title}>원트님의 데이트소개서에요!</Text>
+          <Text style={styles.title}>원트님의 원트소개서에요!</Text>
           <ScrollView style={styles.introductionContainer}>
             {introduction.split('\n\n').map((paragraph, index) => (
               <Text key={index} style={styles.content}>{paragraph}</Text>
             ))}
           </ScrollView>
-          <Text style={styles.summaryText}>✍️ 요약해드릴게요! ✍️</Text>
+          <Text style={styles.summaryText}> 📝 요약본 📝</Text>
           <Text style={styles.summary}>{summary}</Text>
         </>
       )}
@@ -63,7 +63,7 @@ const DatingProfileResult = ({ route, navigation }) => {
         <View style={styles.feedbackContainer}>
           <Text style={styles.feedbackText}>작성된 원트소개서가 마음에 드시나요?</Text>
           <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('자기소개서성공')}>
-            <Text style={styles.buttonText}>마음에 들어요</Text>
+            <Text style={styles.buttonText}>Next</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -76,14 +76,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 25,
-    backgroundColor: '#FFAFBD80', 
+    padding: 20,
+    backgroundColor: '#212121', 
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 30,
+    fontWeight: '100',
+    color: '#FCE4EC',
+    marginTop: 50,
     marginBottom: 20
   },
   introductionContainer: {
@@ -95,14 +95,14 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '300',
+    color: '#FCE4EC',
     marginBottom: 10,
     textAlign: 'center',
   },
   summary: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 13,
+    color: '#FCE4EC',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -114,12 +114,13 @@ const styles = StyleSheet.create({
   },
   feedbackText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '200',
+    color: '#FCE4EC',
     marginBottom: 7,
   },
   button: {
-    backgroundColor: '#FFA07A',
+    backgroundColor: '#F06292',
+    alignItems:"center",
     padding: 10,
     borderRadius: 5,
     marginTop: 8,
@@ -127,6 +128,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#ffffff',
     fontSize: 16,
+    alignC : 'center',
     fontWeight: 'bold'
   },
   loadingIndicator: {

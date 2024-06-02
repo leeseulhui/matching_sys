@@ -99,22 +99,23 @@ const DatingProfileScreen = ({ navigation }) => {
 
   const handleSubmit = async () => {
     if (selectedStyles.length === 0) {
-      Alert.alert('Error', 'Please answer all the questions.');
-      return;
+        Alert.alert('Error', 'Please answer all the questions.');
+        return;
     }
 
     const dataToSend = {
-      userId: userId,
-      responses: selectedStyles
+        userId: userId,
+        responses: selectedStyles
     };
 
     console.log('Sending data:', dataToSend);
 
     const saveSuccessful = await handleSaveResponse(dataToSend);
     if (saveSuccessful) {
-      await handleGenerateIntroduction(dataToSend);
+        await handleGenerateIntroduction(dataToSend);
     }
-  };
+};
+
 
   const handleSelectOption = (option) => {
     if (option === '기타') {

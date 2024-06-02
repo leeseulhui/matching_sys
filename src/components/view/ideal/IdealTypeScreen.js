@@ -18,13 +18,16 @@ const categories = [
 const CategoryPage = ({ category, onOptionSelect, onPrevNext, selectedOption, username }) => {
   return (
     <LinearGradient
-      colors={['#FFAFBD80', '#FFC3A080']}
+      colors={['#373737', '#F2ACAC']}
       style={styles.gradient}
       start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 0 }}
+      end={{ x: 0, y: 1 }}
     >
       <View style={styles.container}>
-        <Text style={styles.headerText}>{username} 님이 선호하시는 {category.name}</Text>
+       <View style={{flexDirection:"row", alignItems:"flex-end"}}>
+        <Text style={{...styles.headerText, fontSize:25}}>{username} </Text>
+        <Text style={styles.headerText}>님이 선호하시는{category.name}</Text>
+        </View> 
         <Text style={styles.subText}>스타일에 맞는 이상형을 찾아드릴게요.</Text>
         <ScrollView contentContainerStyle={styles.optionsContainer}>
           {category.options.map(option => (
@@ -157,15 +160,13 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'left',
-    color: '#333',
-    alignSelf: 'flex-start',
-    marginHorizontal: 20,
+    color: '#FFFFFF',
     marginBottom: 10,  
   },
   subText: {
     fontSize: 14,
-    color: '#666',
-    textAlign: 'left',
+    color: '#F5F5F5',
+    textAlign: 'center',
     alignSelf: 'flex-start',
     marginHorizontal: 20,
     marginBottom: 50,

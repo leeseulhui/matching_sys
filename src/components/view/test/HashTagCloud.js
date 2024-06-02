@@ -26,10 +26,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'pink',
     color: 'black',
     fontSize: 15,
-    borderRadius: 20,
     paddingVertical: 5,
     paddingHorizontal: 10,
     margin: 3,
+    borderRadius:20
   },
 });
 

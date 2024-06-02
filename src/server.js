@@ -808,11 +808,25 @@ app.post('/match', async (req, res) => {
     return res.status(400).send('동일한 유저끼리는 매칭할 수 없습니다.');
   }
 
-  const query = `INSERT INTO Matching (User1ID, User2ID) VALUES (?, ?)`;
-  console.log('Executing query:', query, [user1ID, user2ID]);
+  const checkQuery = `
+    SELECT * FROM Matching 
+    WHERE (User1ID = ? AND User2ID = ?) 
+       OR (User1ID = ? AND User2ID = ?)
+  `;
+
+  const insertQuery = `INSERT INTO Matching (User1ID, User2ID) VALUES (?, ?)`;
 
   try {
-    const [result] = await connection.query(query, [user1ID, user2ID]);
+    const [existingMatches] = await connection.query(checkQuery, [user1ID, user2ID, user2ID, user1ID]);
+
+    if (existingMatches.length > 0) {
+      console.log('Matching already exists');
+      return res.status(400).send('이미 매칭이된 사용자 입니다.');
+    }
+
+    console.log('Executing query:', insertQuery, [user1ID, user2ID]);
+    const [result] = await connection.query(insertQuery, [user1ID, user2ID]);
+
     console.log('매칭 성공:', result.insertId);
     res.status(201).send({ message: '매칭 성공', matchingID: result.insertId });
   } catch (error) {
@@ -880,6 +894,39 @@ app.patch('//usersupdate/:userId', async (req, res) => {
   }
 });
 
+app.get('/chatItemProfile/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const fir_query = `
+      SELECT Matching.MatchingID, Matching.User1ID, Matching.User2ID, Users.Username, Users.User_profile_image 
+      FROM Matching 
+      JOIN Users ON Matching.User2ID = Users.User_id 
+      WHERE User1ID = ?;
+    `;
+    const sec_query = `
+      SELECT Matching.MatchingID, Matching.User1ID, Matching.User2ID, Users.Username, Users.User_profile_image 
+      FROM Matching 
+      JOIN Users ON Matching.User1ID = Users.User_id 
+      WHERE User2ID = ?;
+    `;
 
+    const [fir_response, sec_response] = await Promise.all([
+      connection.query(fir_query, [id]),
+      connection.query(sec_query, [id])
+    ]);
+
+    const combined_response = [...fir_response[0], ...sec_response[0]];
+
+    if (combined_response.length > 0) {
+      console.log(combined_response);
+      res.json(combined_response);
+    } else {
+      res.status(404).json({ message: 'No matching found' });
+    }
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
 server.listen(port, () => console.log(`Server is running on port ${port}`));

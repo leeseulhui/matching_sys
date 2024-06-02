@@ -125,7 +125,7 @@ const FaceDetect = () => {
     } else {
       imageBoxes.push(
         <View style={styles.profileImageContainer} key="placeholder">
-          <Text style={styles.placeholderText}>대표 이미지 선택</Text>
+          <Text style={styles.placeholderText}>+</Text>
         </View>
       );
     }
@@ -136,7 +136,9 @@ const FaceDetect = () => {
         if (index < 4) {
           imageBoxes.push(
             <TouchableOpacity key={index} onPress={() => handleSetProfileImage(imageUri)}>
+              
               <Image source={{ uri: imageUri }} style={styles.otherImage} />
+              
             </TouchableOpacity>
           );
         }
@@ -145,7 +147,9 @@ const FaceDetect = () => {
     // 빈 칸 추가
     while (imageBoxes.length < 5) {
       imageBoxes.push(
-        <View style={styles.otherImage} key={`empty-${imageBoxes.length}`}></View>
+        <View style={styles.otherImage} key={`empty-${imageBoxes.length}`}>
+           <Text style={{...styles.placeholderText, fontSize:28}}>+</Text>
+        </View>
       );
     }
 
@@ -168,7 +172,9 @@ const FaceDetect = () => {
         </View>
         {profileUpdated && (
           <View style={styles.buttonContainer}>
-            <Button title="인스타그램분석" onPress={handleNavigation} />
+            <TouchableOpacity style={styles.analysisButton} onPress={handleNavigation}>
+              <Text style={styles.analysisButtonText}>인스타그램분석</Text>
+            </TouchableOpacity>
           </View>
         )}
       </ScrollView>
@@ -184,7 +190,7 @@ const FaceDetect = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fde4e4', // 연한 분홍색 배경
+    backgroundColor: 'white', 
   },
   scrollContainer: {
     flexGrow: 1,
@@ -240,8 +246,11 @@ const styles = StyleSheet.create({
   placeholderText: {
     textAlign: 'center',
     color: '#ccc',
+    fontSize:32,
   },
   otherImage: {
+    alignItems:"center",
+    justifyContent:"center",
     width: 100,
     height: 100,
     borderRadius: 10,
@@ -251,7 +260,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   buttonContainer: {
-    marginTop: 20,
+    marginTop: 150,
+  },
+  analysisButton: {
+    backgroundColor: '#ff6f61',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    alignSelf: 'center',
+  },
+  analysisButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
 

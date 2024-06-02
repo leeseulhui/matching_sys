@@ -1,28 +1,63 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, TouchableWithoutFeedback, Image  } from 'react-native';
-import { nodeUrl } from '../../deviceSet';
-import { flaskUrl } from '../../deviceSet';
+import React, { useState, useEffect, useRef } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, TouchableWithoutFeedback, Image } from 'react-native';
+import { nodeUrl, flaskUrl } from '../../deviceSet';
 import { image } from '../../../assets/image';
-const ChatScreen = ({ route }) => {
+
+const ChatScreen = ({ route, navigation }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const { matchingID, userId, matchedUserId } = route.params;
-  const [ws, setWs] = useState(null);
+  const ws = useRef(null);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsCached, setSuggestionsCached] = useState(false);
-  const baseURL = 'https://owonet.store';
 
   useEffect(() => {
-    const websocket = new WebSocket('wss://owonet.store/chat/messages/ws');
-    setWs(websocket);
+    connectWebSocket();
 
-    websocket.onopen = () => {
-      console.log('WebSocket Connected');
-      websocket.send(JSON.stringify({ type: 'join', matchingID }));
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
     };
+  }, []);
 
-    websocket.onmessage = (e) => {
+  useEffect(() => {
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      connectWebSocket();
+    });
+
+    //스크린 나갈 시 소켓 연결 끊는 부분 정의 
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    });
+
+    return () => {
+      unsubscribeFocus();
+      unsubscribeBlur();
+    };
+  }, [navigation]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [matchingID]);
+
+  const connectWebSocket = () => {
+    if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+      return;
+    }
+  
+    ws.current = new WebSocket('wss://owonet.store/chat/messages/ws');
+  
+    ws.current.onopen = () => {
+      console.log('WebSocket Connected');
+      ws.current.send(JSON.stringify({ type: 'join', matchingID }));
+    };
+  
+    ws.current.onmessage = (e) => {
       const message = JSON.parse(e.data);
       if (message.MatchingID === matchingID) {
         setMessages(prevMessages => {
@@ -33,30 +68,29 @@ const ChatScreen = ({ route }) => {
         });
       }
     };
-
-    websocket.onerror = (e) => {
+  
+    ws.current.onerror = (e) => {
       console.error('WebSocket Error: ', e.message);
       console.error('WebSocket Error Event: ', e);
     };
-
-    websocket.onclose = (e) => {
+  
+    ws.current.onclose = (e) => {
       console.log(`WebSocket Disconnected: Reason: ${e.reason}, Code: ${e.code}, Clean: ${e.wasClean}`);
       console.log('WebSocket Close Event: ', e);
     };
-
-    return () => {
-      websocket.close();
-    };
-  }, []);
-
-  useEffect(() => {
-    fetchMessages();
-    fetchSuggestions();
-  }, []);
+  
+    const pingInterval = setInterval(() => {
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000);
+  
+    return () => clearInterval(pingInterval);
+  };
 
   const fetchMessages = async () => {
     try {
-      console.log(matchingID);
+      console.log('fetchMessages userId:', userId, 'matchingID:', matchingID);
       const response = await fetch(`${nodeUrl}/chat/messages/${matchingID}`, {
         method: 'GET',
         headers: {
@@ -66,7 +100,7 @@ const ChatScreen = ({ route }) => {
 
       if (!response.ok) {
         if (response.status === 404) {
-          setMessages([]); // 메시지가 없을 경우 빈 배열로 설정
+          setMessages([]);
         } else {
           throw new Error('Failed to fetch messages');
         }
@@ -100,8 +134,8 @@ const ChatScreen = ({ route }) => {
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
-
       const newMessage = await response.json();
+
       setMessages(previousMessages => {
         if (!previousMessages.some(msg => msg.MessageID === newMessage.MessageID)) {
           return [...previousMessages, newMessage];
@@ -116,8 +150,6 @@ const ChatScreen = ({ route }) => {
     }
   };
 
-
-  //챗봇 부분
   const fetchSuggestions = async () => {
     if (suggestionsCached) {
       setShowSuggestions(true);
@@ -125,13 +157,13 @@ const ChatScreen = ({ route }) => {
     }
 
     try {
-      console.log('Fetching suggestions for userId:', userId);
+      console.log('Fetching suggestions for userId:', userId, 'and matchingId:', matchingID);
       const response = await fetch(`${flaskUrl}/chatbot/suggestions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, matchingId: matchingID }),
       });
 
       if (!response.ok) {
@@ -140,27 +172,68 @@ const ChatScreen = ({ route }) => {
 
       const data = await response.json();
       console.log('Received suggestions:', data);
-      setSuggestions(data); 
+      setSuggestions(data);
       setSuggestionsCached(true);
       setShowSuggestions(true);
     } catch (error) {
       console.error('Error fetching suggestions:', error);
+      Alert.alert('Error', 'Failed to fetch suggestions. Please try again.');
     }
   };
+
+  const fetchRealtimeSuggestions = async () => {
+    try {
+      const response = await fetch(`${flaskUrl}/chat/suggestions/realtime`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ matchingID }),
+      });
   
+      if (!response.ok) {
+        throw new Error('Failed to fetch real-time suggestions');
+      }
+  
+      const data = await response.json();
+      if (data.suggestions) {
+        setSuggestions(data.suggestions);
+        setShowSuggestions(true);
+      }
+    } catch (error) {
+      console.error('Error fetching real-time suggestions:', error);
+      Alert.alert('Error', 'Failed to fetch suggestions. Please try again.');
+    }
+  };
+
+  // Periodically check for inactivity
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchRealtimeSuggestions();
+    }, 120000); // 5 minutes
+  
+    return () => clearInterval(interval);
+  }, []);
+
   const renderSuggestion = ({ item }) => (
     <TouchableOpacity style={styles.suggestionButton} onPress={() => setInputMessage(item)}>
       <Text style={styles.suggestionText}>{item}</Text>
     </TouchableOpacity>
   );
 
+  const renderItem = ({ item }) => {
+    const isMyMessage = item.SenderID == userId;
+    return (
+      <View style={[
+        styles.messageContainer,
+        isMyMessage ? styles.myMessage : styles.theirMessage
+      ]}>
+        <Text style={styles.message}>{item.MessageContent}</Text>
+        <Text style={styles.timestamp}>{new Date(item.SentDate).toLocaleString()}</Text>
+      </View>
+    );
+  };
 
-  const renderItem = ({ item }) => (
-    <View style={[styles.messageContainer, item.SenderID === userId ? styles.myMessage : styles.theirMessage]}>
-      <Text style={styles.message}>{item.MessageContent}</Text>
-      <Text style={styles.timestamp}>{new Date(item.SentDate).toLocaleString()}</Text>
-    </View>
-  );
 
   return (
     <View style={styles.container}>
@@ -330,6 +403,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
 });
-
 
 export default ChatScreen;

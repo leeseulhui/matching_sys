@@ -118,7 +118,7 @@ const InstagramScreen = () => {
   /// 여기 부터가 본 함수 리턴 값
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>사진들이 굉장히 멋있군요 😎{"\n"}분석하고 싶은 이미지를 5장까지 선택해주세요!</Text>
+      <Text style={styles.header}>멋진 사진들이네요 😎{"\n"}분석하고 싶은 이미지를 5장까지 선택해주세요!</Text>
       <FlatList
         data={imageUrls}
         renderItem={renderItem}
@@ -135,7 +135,7 @@ const InstagramScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F7',
+    backgroundColor: '#FCE4EC',
   },
   loadingContainer: {
     flex: 1,
@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
     opacity: 1,
   },
   button: {
-    backgroundColor: '#FF9CB4',
+    backgroundColor: '#424242',
     padding: 15,
     borderRadius: 10,
     margin: 20,

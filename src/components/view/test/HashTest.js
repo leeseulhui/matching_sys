@@ -209,7 +209,7 @@ const HashTest = () => {
                 <View key={index} style={styles.userCard}>
                   <Text style={styles.userName}>{user.name}</Text>
                   <HashTagCloud hashTags={highSimilarityTags[user.id] || []} />
-                  <Text style={styles.userSimilarity}>유사도: {userSimilarities[user.id] !== undefined ? `${(userSimilarities[user.id] * 100).toFixed(2)}%` : '계산 중...'}</Text>
+                  <Text style={styles.userSimilarity}>{userSimilarities[user.id] !== undefined ? `${(userSimilarities[user.id] * 100).toFixed(2)}% 유사`  : '계산 중...'}</Text>
                 </View>
               ))}
             </View>
@@ -227,7 +227,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     paddingTop: status_top + 40,
-    backgroundColor: '#212121',
+    backgroundColor: '#FFEBD8',
     opacity : 20
   },
   container: {
@@ -253,8 +253,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 20,
-    fontWeight: '100',
-    color: '#FFEBEE',
+    fontWeight: '200',
+    color: '#191919',
     marginTop: 40,
     marginBottom: 20,
     textAlign: 'center',
@@ -300,8 +300,8 @@ const styles = StyleSheet.create({
   userSimilarity: {
     fontSize: 15,
     marginTop : 10,
-    fontWeight: '300',
-    color: '#FFEBEE',
+    fontWeight: '400',
+    color: '#89B9AD',
   },
   error: {
     fontSize: 16,

@@ -264,7 +264,7 @@ function renderProfileDetail(label, value) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FDEFED', alignItems: "center" },
+  container: { flex: 1, backgroundColor: '#FFEBD8', alignItems: "center" },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { color: 'red' },
   header: { paddingTop: 50, paddingBottom: 20, alignItems: 'center' },

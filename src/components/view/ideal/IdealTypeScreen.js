@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const categories = [
   { key: 'age', name: '나이', options: ['연하', '연상', '동갑'] },
-  { key: 'religion', name: '종교', options: ['기독교', '불교', '유교', '원불교', '천도교', '무교', '대종교', '이슬람교', '유대교', '기타', '없음'] },
+  { key: 'religion', name: '종교', options: ['기독교', '불교', '유교', '기타' ] },
   { key: 'personality', name: 'MBTI', options: ['ISTJ', 'ISFJ', 'INFJ', 'INTJ', 'ISTP', 'ISFP', 'INFP', 'INTP', 'ESTP', 'ESFP', 'ENFP', 'ENTP', 'ESTJ', 'ESFJ', 'ENFJ', 'ENTJ'] },
   { key: 'interests', name: '관심사', options: ['여행', '독서', '요리', '영화', '사진', '운동', '자기계발', '기타'] },
   { key: 'attract', name: '매력을 느끼는 행동', options: ['나와 유머 감각이 통할 때', '지적인 대화를 할 때', '외국어를 유창하게 할 때', '새로운 것에 도전할 때', '감정을 잘 절제할 때', '자기 일을 열심히 할 때', '잘 웃을 때', '옷을 잘 입을 때', '예의 바를 때'] }
@@ -18,7 +18,7 @@ const categories = [
 const CategoryPage = ({ category, onOptionSelect, onPrevNext, selectedOption, username }) => {
   return (
     <LinearGradient
-      colors={['#373737', '#F2ACAC']}
+      colors={['#FFEBD8', '#F2ACAC']}
       style={styles.gradient}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
@@ -28,7 +28,7 @@ const CategoryPage = ({ category, onOptionSelect, onPrevNext, selectedOption, us
         <Text style={{...styles.headerText, fontSize:25}}>{username} </Text>
         <Text style={styles.headerText}>님이 선호하시는{category.name}</Text>
         </View> 
-        <Text style={styles.subText}>스타일에 맞는 이상형을 찾아드릴게요.</Text>
+        <View style={{alignItems:"center"}}><Text style={styles.subText}>스타일에 맞는 이상형을 찾아드릴게요.</Text></View>
         <ScrollView contentContainerStyle={styles.optionsContainer}>
           {category.options.map(option => (
             <TouchableOpacity
@@ -160,12 +160,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'left',
-    color: '#FFFFFF',
+    color: '#1F1717',
     marginBottom: 10,  
   },
   subText: {
     fontSize: 14,
-    color: '#F5F5F5',
+    color: '#373737',
     textAlign: 'center',
     alignSelf: 'flex-start',
     marginHorizontal: 20,

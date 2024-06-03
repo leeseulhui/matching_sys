@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import { nodeUrl, flaskUrl } from '../../../deviceSet'; // 플라스크 서버, 노드서버 요청 URL
+import { nodeUrl, flaskUrl, fullWidth } from '../../../deviceSet'; // 플라스크 서버, 노드서버 요청 URL
 import Slider from '@react-native-community/slider';
 import { useSelector, useDispatch } from 'react-redux';
 import {select_image_url} from '../../../reduxContainer/action/colorAnalysisData'
@@ -73,7 +73,7 @@ const ProfileDesign = () => {
 
   const renderSelectable = (url, index) => {
     return (
-      <TouchableOpacity key={index} onPress={() => { 
+      <TouchableOpacity style ={{margin:10}} key={index} onPress={() => { 
         setSelectedImageIndex(index);
         dispatch(select_image_url(url));
       }}>

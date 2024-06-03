@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { SafeAreaView,View, Text, TouchableOpacity, Image, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { image, icons } from '../../../assets/image';
 import axios from 'axios';
@@ -85,7 +85,7 @@ const MainScreen = () => {
   );
 
   return (
-    <View style={styles.container}>
+    <SafeAreaViewView style={styles.container}>
       <Text style={styles.title}>만남을 시작해보세요!</Text>
       {error ? (
         <View style={styles.noMatchContainer}>
@@ -107,7 +107,11 @@ const MainScreen = () => {
             const partnerId = chatItem.User1ID === userId ? chatItem.User2ID : chatItem.User1ID;
             return (
               <View key={chatItem.MatchingID} style={styles.profileCard}>
-                <Image source={{ uri: chatItem.User_profile_image }} style={styles.profileImage} resizeMode="cover" />
+                <Image
+                  source={{ uri: `${chatItem.User_profile_image}?t=${new Date().getTime()}` }}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
                 <View style={styles.textContainer}>
                   <Text style={styles.profileName}>{chatItem.Username}</Text>
                 </View>
@@ -122,18 +126,18 @@ const MainScreen = () => {
       <View style={styles.tabRow}>
         {home_tabs.map(renderTab)}
       </View>
-    </View>
+    </SafeAreaViewView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#212121',
+    backgroundColor: '#FFEBD8',
   },
   title: {
     fontSize: 24,
-    fontWeight: '200',
+    fontWeight: '300',
     color: '#F48FB1',
     textAlign: 'center',
     marginVertical: 15,
@@ -152,7 +156,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingVertical: 10,
-    backgroundColor: '#212121',
+    backgroundColor: '#FFEBD8',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -170,14 +174,14 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 12,
-    color: '#6c757d',
+    color: '#89B9AD',
   },
   activeTab: {
     borderBottomWidth: 3,
-    borderColor: '#212121',
+    borderColor: '#89B9AD',
   },
   activeTabLabel: {
-    color: '#212121',
+    color: '#89B9AD',
   },
   scrollView: {
     flex: 1,
@@ -187,11 +191,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileCard: {
-    width: width - 80, 
+    width: width - 100, 
     height: height - 400, 
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#212121',
+    backgroundColor: '#FFC5C5',
     marginHorizontal: 40, 
     marginVertical: 20,
     borderRadius: 15,
@@ -211,7 +215,7 @@ const styles = StyleSheet.create({
   textContainer: {
     width: '100%',
     padding: 20,
-    backgroundColor: '#FCE4EC',
+    backgroundColor: '#FFC5C5',
     opacity : 200,
     alignItems: 'center',
     borderBottomLeftRadius : 20,

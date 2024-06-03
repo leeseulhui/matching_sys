@@ -65,7 +65,7 @@ function MainTab() {
           return <Image source={iconName} style={{ width: size, height: size }} />;
         },
         tabBarStyle: {
-          backgroundColor: '#FEE3E5',
+          backgroundColor: '#89B9AD',
         },
         headerShown: false,
       })}
@@ -143,7 +143,7 @@ export default function StackContainer() {
         headerStyle: { backgroundColor: 'tomato' },
       }}>
         <Stack.Screen name="로그인" component={LoginScreen} />
-        <Stack.Screen name="메인화면" component={DrawerMenu} />
+        <Stack.Screen name="메인화면" component={MainTab} />
         <Stack.Screen name="프로필디자인" component={ProfileDesign} />
         <Stack.Screen name="해시테스트" component={HashTest} />
         <Stack.Screen name="이상형타입" component={IdealType} />

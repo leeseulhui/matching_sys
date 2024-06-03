@@ -59,6 +59,8 @@ import time
 from langchain.llms import OpenAI as LangchainOpenAI
 from langchain.chains import ConversationChain
 from langchain.memory import ConversationBufferMemory
+from langchain_community.llms import OpenAI
+from langchain.llms import OpenAI
 import threading
 
 app = Flask(__name__)
@@ -728,10 +730,8 @@ def face_detection():
 # LangChain 설정
 openai.api_key = "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"
 
-# 전역 변수로 유지
-llm = LangchainOpenAI(model="gpt-4", temperature=1.0, max_tokens=500)
+llm = OpenAI(model="gpt-3.5-turbo-instruct", temperature=1.0, max_tokens=500)
 memory = ConversationBufferMemory()
-conversation = ConversationChain(llm=llm, memory=memory)
 
 # 마지막 메시지 시간을 추적하는 딕셔너리
 last_message_time = {}
@@ -741,7 +741,7 @@ def check_inactivity():
     while True:
         current_time = datetime.now()
         for matching_id, last_time in list(last_message_time.items()):
-            if (current_time - last_time).total_seconds() > 300:
+            if (current_time - last_time).total_seconds() > 120:
                 data = {'matchingID': matching_id}
                 with app.app_context():
                     response = app.test_client().post('/chat/suggestions/realtime', json=data)
@@ -759,7 +759,6 @@ def check_inactivity():
 def start_thread():
     thread = threading.Thread(target=check_inactivity, daemon=True)
     thread.start()
-
 
 # Flask 애플리케이션 컨텍스트 내에서 스레드 시작
 with app.app_context():
@@ -803,31 +802,30 @@ def get_matching_user_data(matching_id, user_id):
 def gpt_prompt(matched_user_profile):
     interests = matched_user_profile.get('Interests', '관심사')
     attractions = matched_user_profile.get('Attractions', '매력')
-
     messages = [
         {
             "role": "system",
-            "content": "당신은 친절하고 예의바른 인공지능 챗봇입니다. 상대방과 즐겁고 의미 있는 대화를 나눌 수 있도록 도와주세요."
+            "content": "You are a friendly and polite AI chatbot. Help the user have an enjoyable and meaningful conversation."
         },
         {
             "role": "user",
             "content": f"""##### USER INFO
-            {matched_user_profile.get('Username', 'User')}님의 프로필 정보입니다.
-            관심사: {interests}
-            매력 포인트: {attractions}
+            This is the profile information of {matched_user_profile.get('Username', 'User')}.
+            Interests: {interests}
+            Attractive points: {attractions}
 
             ##### INSTRUCTION
-            위 USER INFO를 기반으로 상대방과의 자연스럽고 흥미로운 대화를 위한 질문을 만들어주세요.
-            - 질문은 50자를 넘지 않도록 해주세요.
-            - 질문은 한 문장으로만 나타내주세요.
-            - 각 질문은 숫자 없이 만들어 주세요.
-            - 데이터베이스 기반으로 다양한 분야의 질문을 만들어주세요.
-            - 일상적인 질문, 예를 들어 '밥은 뭐 드셨나요?', '뭐하고 계신가요?' 같은 질문도 포함해주세요.
-            - 데이터베이스 기반으로 만드는 질문이 아니라면 일상적인 생활 속에서 일어나는 당연한 질문을 만들어주세요.
-            - 상대방이 예/아니오로 답할 수 있는 질문은 피해주시고 서술형 질문을 만들어주세요.
-            - 상대방의 관심사와 취미를 반영한 질문을 포함해주세요.
-            - 가끔씩 질문에 어울리는 이모티콘이 있다면 이모티콘도 함께 사용해주세요.
-            - 질문의 개수는 5개로 제한해주세요.
+            Based on the USER INFO, please generate natural and interesting conversation questions.
+            - Each question should not exceed 50 characters.
+            - Each question should be in one sentence.
+            - Do not include any numbering in the questions.
+            - Generate questions from various fields based on the database.
+            - Include common questions like 'What did you eat?' or 'What are you doing?'
+            - If not from the database, include natural questions from everyday life.
+            - Avoid yes/no questions; focus on open-ended questions.
+            - Reflect the user's interests and hobbies in the questions.
+            - If appropriate, include emojis with the questions.
+            - Limit the number of questions to 5. / Use korea
 
             ##### OUTPUT
             """
@@ -836,7 +834,7 @@ def gpt_prompt(matched_user_profile):
 
     # OpenAI API 호출
     gpt_response = openai.ChatCompletion.create(
-        model="gpt-4o",
+        model="gpt-4",
         messages=messages,
         max_tokens=500,
         n=1,
@@ -846,6 +844,9 @@ def gpt_prompt(matched_user_profile):
 
     responses = gpt_response['choices'][0]['message']['content'].strip().split('\n')
     cleaned_responses = [response.strip().lstrip('-').strip() for response in responses if response.strip()]
+    
+    cleaned_responses = [re.sub(r'^\d+\.\s*', '', response) for response in cleaned_responses]
+    
     return cleaned_responses
 
 #대화 분석 모듈
@@ -856,7 +857,7 @@ def analyze_recent_messages(matching_id):
         query = 'SELECT * FROM Messages WHERE MatchingID = %s ORDER BY SentDate DESC LIMIT 20'
         cursor.execute(query, (matching_id,))
         messages = cursor.fetchall()
-        
+
         if not messages:
             return False, []
 
@@ -864,7 +865,7 @@ def analyze_recent_messages(matching_id):
         current_time = datetime.now()
         time_diff = (current_time - last_message_time).total_seconds()
 
-        return time_diff > 120, messages  #2분 동안 답변이 없으면 대화가 막혔다고 간주하고 챗봇이 채팅 목록 추천해줌.
+        return time_diff > 120, messages
     finally:
         cursor.close()
         connection.close()
@@ -885,44 +886,67 @@ def serialize_user_profile(user_profile):
             serialized_profile[key] = value
     return serialized_profile
 
+def get_conversation_suggestions(context):
+    # Create an OpenAI instance with your API key
+    openai_api_key = "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"
+    llm = OpenAI(api_key=openai_api_key)
+
+    # Create a conversation chain
+    conversation = ConversationChain(llm=llm)
+
+    # Define the prompt
+    prompt = f"""
+        ##### CONVERSATION HISTORY
+        {context}
+
+        ##### INSTRUCTION
+            - Please write your questions in 20 characters or less \
+            - Based on the CONVERSATION HISTORY, Please limit the number of questions to five \
+            -Each suggestion should be engaging and related to the previous messages. \
+            - Do not include labels like 'HUMAN' or 'AI'. \
+            - Do not include empty suggestions. \
+            - Format each suggestion as a numbered list item. Use emojis where appropriate. \
+            - Write in a friendly and lively style. Use Korean. 
+
+        ##### OUTPUT
+        """
+    response = conversation.run(prompt)
+    suggestions = [re.sub(r'^\d+\.\s*', '', s.strip()) for s in response.split('\n') if s.strip() and not s.startswith('Human:') and not s.startswith('AI:')]
+    return suggestions[:5]
+
+
 #대화 내용 추천 엔드포인트
 @app.route('/chat/suggestions/realtime', methods=['POST'])
 def get_realtime_suggestions():
     data = request.json
     matching_id = data.get('matchingID')
-    
+
     if not matching_id:
         return jsonify({"error": "matchingID is required"}), 400
-    
+
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        query = 'SELECT * FROM Messages WHERE MatchingID = %s ORDER BY SentDate ASC'
-        cursor.execute(query, (matching_id,))
-        messages = cursor.fetchall()
-        
+        conversation_stuck, messages = analyze_recent_messages(matching_id)
+
         if not messages:
             return jsonify({"error": "No messages found for this matching ID"}), 404
-        
-        last_message_time = messages[-1]['SentDate']
-        current_time = datetime.now()
-        time_diff = (current_time - last_message_time).total_seconds()
-        
-        if time_diff > 120:  # 5분
+
+        if conversation_stuck:
             context = " ".join([msg['MessageContent'] for msg in messages])
-            response = conversation.predict(context)
-            suggestions = response.strip().split('\n')
+            app.logger.info(f'Context for GPT: {context}')
+
+            suggestions = get_conversation_suggestions(context)
+            app.logger.info(f'GPT Response: {suggestions}')
+
             return jsonify({"suggestions": suggestions})
         else:
             return jsonify({"message": "Conversation flow is smooth"})
-    
+
     except Exception as error:
         app.logger.error(f'Error processing suggestions: {error}', exc_info=True)
         return jsonify({"error": "Failed to process suggestions due to server error", "details": str(error)}), 500
-    finally:
-        cursor.close()
-        connection.close()
-    
+
+
+
 #챗봇 추천 엔드포인트
 @app.route('/chatbot/suggestions', methods=['POST'])
 def get_suggestions():

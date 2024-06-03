@@ -24,7 +24,7 @@ const ProfileSuccess = () => {
         </View>
       </ScrollView>
       <TouchableOpacity style={styles.button} onPress={handleMatching}>
-        <Text style={styles.buttonText}>이상형 등록</Text>
+        <Text style={styles.buttonText}>Next</Text>
       </TouchableOpacity>
     </View>
   );
@@ -34,7 +34,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    backgroundColor: '#FFAFBD80',
+    backgroundColor: '#FFEBD8',
   },
   title: {
     fontSize: 18,
@@ -65,14 +65,14 @@ const styles = StyleSheet.create({
   placeholderBox: {
     
     backgroundColor: '#FFF',
-    borderColor: '#DDD',
-    borderWidth: 1,
+    
+    
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   button: {
-    backgroundColor: '#FFA07A',
+    backgroundColor: '#FFC5C5',
     padding: 10,
     borderRadius: 5,
     marginTop: 8,

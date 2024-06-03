@@ -1,39 +1,39 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
-import { flaskUrl } from '../../../deviceSet'; //플라스크 요청 url
+import { flaskUrl } from '../../../deviceSet'; // Flask 요청 URL
 import { useSelector } from 'react-redux'; // 사용자 정보를 받아오기 위한 훅
 
 const DatingProfileResult = ({ route, navigation }) => {
-  // const { userId } = route.params;  사용자의 id를 동적으로 넘겨주려는 의도?
+  // const { userId } = route.params;  // 사용자의 ID를 동적으로 넘겨주려는 의도
   const userId = useSelector((state) => state.instaUserData.User_id);
   const [introduction, setIntroduction] = useState('');
   const [summary, setSummary] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  //const baseURL = 'http://localhost:6000';  나중에 구용이도 써야함. 
- 
+  //const baseURL = 'http://localhost:6000';  // 나중에 사용할 수도 있음
+
   useEffect(() => {
     const fetchIntroduction = async () => {
       const requestOptions = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify( {userId: userId })  
+        body: JSON.stringify({ userId: userId })  
       };
-      console.log("Sending request to server with data:", requestOptions);
+      console.log("서버에 데이터를 보내는 중:", requestOptions);
 
       try {
         const response = await fetch(`${flaskUrl}/generate_introduction`, requestOptions);
         const result = await response.json();
 
-        console.log("Response received:", result);
+        console.log("응답을 받았습니다:", result);
         if (response.ok) {
           setIntroduction(result.introduction);
           setSummary(result.summary);  
         } else {
-          throw new Error(`Failed to fetch introduction, status: ${response.status}`);
+          throw new Error(`소개서 가져오기 실패, 상태: ${response.status}`);
         }
       } catch (error) {
-        console.error('Fetch introduction error:', error);
-        setIntroduction('Failed to fetch introduction. Please try again.');
+        console.error('소개서 가져오기 에러:', error);
+        setIntroduction('소개서를 가져오지 못했습니다. 다시 시도해 주세요.');
         setSummary('');
       } finally {
         setIsLoading(false);
@@ -49,13 +49,13 @@ const DatingProfileResult = ({ route, navigation }) => {
         <ActivityIndicator size="large" color="#FFC3A0" style={styles.loadingIndicator} />
       ) : (
         <>
-          <Text style={styles.title}>원트님의 데이트소개서에요!</Text>
+          <Text style={styles.title}>원트님의 원트소개서에요!</Text>
           <ScrollView style={styles.introductionContainer}>
             {introduction.split('\n\n').map((paragraph, index) => (
               <Text key={index} style={styles.content}>{paragraph}</Text>
             ))}
           </ScrollView>
-          <Text style={styles.summaryText}>✍️ 요약해드릴게요! ✍️</Text>
+          <Text style={styles.summaryText}> 📝 요약본 📝</Text>
           <Text style={styles.summary}>{summary}</Text>
         </>
       )}
@@ -63,7 +63,7 @@ const DatingProfileResult = ({ route, navigation }) => {
         <View style={styles.feedbackContainer}>
           <Text style={styles.feedbackText}>작성된 원트소개서가 마음에 드시나요?</Text>
           <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('자기소개서성공')}>
-            <Text style={styles.buttonText}>마음에 들어요</Text>
+            <Text style={styles.buttonText}>Next</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -76,14 +76,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 25,
-    backgroundColor: '#FFAFBD80', 
+    padding: 20,
+    backgroundColor: '#212121', 
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginTop: 30,
+    fontWeight: '100',
+    color: '#FCE4EC',
+    marginTop: 50,
     marginBottom: 20
   },
   introductionContainer: {
@@ -95,14 +95,14 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '300',
+    color: '#FCE4EC',
     marginBottom: 10,
     textAlign: 'center',
   },
   summary: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 13,
+    color: '#FCE4EC',
     marginBottom: 20,
     textAlign: 'center',
   },
@@ -114,12 +114,13 @@ const styles = StyleSheet.create({
   },
   feedbackText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: '200',
+    color: '#FCE4EC',
     marginBottom: 7,
   },
   button: {
-    backgroundColor: '#FFA07A',
+    backgroundColor: '#F06292',
+    alignItems:"center",
     padding: 10,
     borderRadius: 5,
     marginTop: 8,
@@ -127,6 +128,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#ffffff',
     fontSize: 16,
+    textAlign: 'center',  // 수정된 속성
     fontWeight: 'bold'
   },
   loadingIndicator: {

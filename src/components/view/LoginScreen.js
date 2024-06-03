@@ -9,6 +9,8 @@ import { reboot_user_data } from '../../reduxContainer/action/signUpAction'
 import { image } from '../../../assets/image';// 에셋 저장 데이터
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fullWidth } from '../../deviceSet';
+
 
 const LoginScreen = () => {
   //{ navigation, route } 기존 파라미터 
@@ -64,8 +66,8 @@ const LoginScreen = () => {
 
   //일단 메인페이지로 넘어가는 코드추가해놓음
   const gotoMain = () => {
-    navigation.navigate("메인화면");
-    // navigation.navigate("얼굴인식");
+    // navigation.navigate("메인화면");
+    navigation.navigate("얼굴인식");
   }
 
 
@@ -74,17 +76,19 @@ const LoginScreen = () => {
     navigation.navigate("인스타로그인");
   };
   return (
-    <ImageBackground
-      source={image.login}
-      style={styles.background}
-      imageStyle={styles.backgroundImage}
-    >
+    
       <View style={styles.container}>
-        <Image source={image.logo} style={styles.logo}></Image>
+        <Image source={require('../../../assets/onet_logo.png')} style={styles.logo}></Image>
+        <View>
+          <Text style={{fontWeight:"400", color:"#F2ACAC", fontSize:28}}>
+            우리들의 완벽한 만남의 시작 ! 
+          </Text>
+          <Text style={{fontWeight:"bold", color:"#F2ACAC", fontSize:32, alignSelf:"center", marginBottom:100 }}>OneT</Text>
+        </View>
         <View style={styles.form}>
           <TouchableOpacity style={styles.button}
             onPress={gotoMain}>
-            <Text style={styles.buttonText}>로그인</Text>
+            <Text style={styles.buttonText}>login</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.instagramButton}
@@ -96,12 +100,12 @@ const LoginScreen = () => {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
             >
-              <Text style={styles.buttonText}>인스타그램으로 시작하기</Text>
+              <Text style={styles.buttonText}>Start To Instagram</Text>
             </LinearGradient>
           </TouchableOpacity>
         </View>
       </View>
-    </ImageBackground>
+    
   );
 };
 
@@ -111,6 +115,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor:"#373737",
+    // backgroundColor:"#F2EBDF"
+    
   },
   background: {
     flex: 1,
@@ -143,12 +150,16 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   gradient: {
+    backgroundColor:"#373737",
     paddingVertical: 15,
     paddingHorizontal: 30,
     borderRadius: 20,
   },
   button: {
-    backgroundColor: '#FF9999',
+    // backgroundColor: '#FF9999',
+    borderWidth:1,
+    borderColor:"#FF9999",
+
     padding: 15,
     borderRadius: 20,
     width: '100%',
@@ -158,13 +169,13 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: "300",
     textAlign: 'center',
   },
   logo: {
-    width: 200,
-    height: 200,
+    width: fullWidth*0.45,
+    height: fullWidth*0.45,
     marginBottom: 30,
   },
 });

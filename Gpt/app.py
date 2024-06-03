@@ -8,10 +8,14 @@ import openai
 from flask_cors import CORS
 from io import BytesIO
 import re 
+import json
 from transformers import pipeline
+
 #이미지 캡션 라이브러리
 from azure_service import generate_caption, extract_nouns
-import json
+#자기소개서
+openai.api_key = "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"
+
 #자기소개서 유사도분석 라이브러리
 from sentence_transformers import SentenceTransformer, util
 
@@ -44,20 +48,28 @@ nltk.download('wordnet')
 
 # 얼굴 인식
 from face_detection_check import detect_faces
+
 # 해시태그 분석
 from hash_similarity import similarity_blueprint
-#연결 확인 부분(터미널에 뜨는 곳)
+
+#챗봇
+openai.api_key = os.getenv("OPENAI_API_KEY")
+from datetime import datetime, date, timedelta
+import time 
+from langchain.llms import OpenAI as LangchainOpenAI
+from langchain.chains import ConversationChain
+from langchain.memory import ConversationBufferMemory
+from langchain_community.llms import OpenAI
+from langchain.llms import OpenAI
+import threading
+
 app = Flask(__name__)
 
+
+chatbot_bp = Blueprint('chatbot', __name__)
 CORS(app)  # 모든 도메인에 요청 허용
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-chatbot_bp = Blueprint('chatbot', __name__)
-
-# 챗봇 모델 로드 (사용자가 제공한 설정에 맞춤)
-sentiment_analyzer = pipeline('sentiment-analysis', model='bert-base-uncased')
-translator = Translator()
 
 load_dotenv()
 
@@ -68,22 +80,36 @@ db_name = os.getenv('DB_NAME')
 
 model = SentenceTransformer('sentence-transformers/paraphrase-mpnet-base-v2')
 
+# 챗봇 모델 로드 (사용자가 제공한 설정에 맞춤)
+sentiment_analyzer = pipeline('sentiment-analysis', model='bert-base-uncased')
+translator = Translator()
+
+def get_db_connection():
+    try:
+        connection = mysql.connector.connect(
+            host=db_host,
+            user=db_user,
+            password=db_password,
+            database=db_name
+        )
+        return connection
+    except mysql.connector.Error as err:
+        logger.error(f"DB 연결 실패: {err}")
+        return None
+
 try:
-    db_connection = mysql.connector.connect(
-        host=db_host,
-        user=db_user,
-        password=db_password,
-        database=db_name
-    )
-    logger.info("DB 연결 성공")
-    db_cursor = db_connection.cursor()
+    db_connection = get_db_connection()
+    if db_connection:
+        logger.info("DB 연결 성공")
+        db_cursor = db_connection.cursor(dictionary=True)
+    else:
+        logger.error("DB 연결 실패")
 except mysql.connector.Error as error:
     logger.error(f"DB 연결 실패: {error}")
     db_connection = None
 
 #API 키 설정 및 확인
 openai_api_key = os.getenv("OPENAI_API_KEY")
-dalle_api_key = os.getenv("OPENAI_API_KEY")
 print("Loaded OPENAI_API_KEY:", openai_api_key)
 
 #자기소개서 디자인
@@ -156,7 +182,7 @@ def save_response():
         db_connection.rollback()
         logger.error(f"데이터베이스에 응답 저장 실패: {error}")
         return jsonify({'message': '데이터 저장 실패'}), 500
-
+    
 
 
 #자기소개서 생성
@@ -174,13 +200,20 @@ def generate_introduction():
         app.logger.error("Missing userId in the data")
         return jsonify({'error': 'Missing userId'}), 400
 
+    db_connection = get_db_connection()
+    if not db_connection:
+        app.logger.error('DB 연결 실패')
+        return jsonify({'error': 'DB 연결 실패'}), 500
+
     try:
+        db_cursor = db_connection.cursor(dictionary=True)
+
         user_query = "SELECT Username FROM Users WHERE User_id = %s"
         db_cursor.execute(user_query, (user_id,))
         user_result = db_cursor.fetchone()
         if not user_result:
             return jsonify({'error': 'User not found'}), 404
-        username = user_result[0]
+        username = user_result['Username']
 
         response_query = "SELECT Category, QuestionIndex, Answer FROM UserResponses WHERE User_id = %s"
         db_cursor.execute(response_query, (user_id,))
@@ -189,90 +222,96 @@ def generate_introduction():
         if not responses:
             return jsonify({'error': 'No responses found for this user'}), 404
 
-        # 질문에 맞게 프롬프트 생성
         question_map = {
             "사랑": [
-                "이상적인 연인의 가장 중요한 특성은 무엇인가요?",
-                "어떤 상황에서 연인에게 가장 큰 매력을 느끼나요?"
+                "{answer} is the most important characteristic of an ideal partner.",
+                "{answer}, I feel the most attraction to my partner.",
             ],
-            "일": [
-                "직업에 있어 가장 중요하다고 생각하는 것은 무엇인가요?"
-            ],
-            "식사": [
-                "어떤 유형의 음식을 선호하나요?"
-            ],
-            "놀이": [
-                "여가 시간에 주로 무엇을 하나요?"
-            ],
-            "사고": [
-                "일상에서 마주하는 문제를 해결할 때 어떤 방식을 선호하나요?",
-                "인생에서 가장 중요한 가치는 무엇인가요?"
-            ]
+            "일": ["{answer} is the most important aspect of a job."],
+            "식사": ["{answer} is my preferred type of cuisine."],
+            "놀이": ["{answer} is what I usually do in my free time."],
+            "사고": ["{answer}, I prefer to solve everyday problems.", "{answer} is the most important value in my life."],
         }
 
-        messages = [
-            {
-                "role": "system",
-                "content": "당신은 매력적이고 유쾌한 데이트 프로필을 작성하는 데 재능 있는 AI 어시스턴트입니다. "
-                        "사용자와 협력하여 그들의 고유한 특성과 관심사를 강조하는 매력적이고 진정성 있는 프로필을 만드세요. "
-                        "사용자가 자신의 개인적인 이야기와 선호를 공유하도록 격려하고, 이를 바탕으로 매력적이고 공감할 수 있는 데이트 자기소개서를 작성하세요. "
-                        "자기소개서는 유창하고 자연스럽고 반복적인 표현이 없도록 하세요. "
-                        "같은 단어를 반복해서 사용하지 마세요. "
-                        "자기소개서는 따뜻하고 개성 있으며 데이트 프로필에 적합해야 합니다."
-            },
+        messages = []
+        _user_info = [f"{username} is my name."]
+        for response in responses:
+            category = response["Category"]
+            question_index = response["QuestionIndex"]
+            answer = response["Answer"]
+            question = question_map[category][question_index]
+            _user_info.append(question.format(answer=answer))
+
+        about_user = "\n".join(_user_info)
+
+        words_length = 200  # 단어 수
+        max_emojis = 3
+
+        messages.append(
             {
                 "role": "user",
-                "content": f"{username}이라는 사용자의 다음 정보를 바탕으로 데이트 프로필 자기소개서를 작성하세요:"
+                "content": f"""##### USER INFO
+                {about_user}
+
+                ##### INSTRUCTION
+                Based on the USER INFO, Write a self-introduction for a profile in a dating app. In 1st party perspective. soft and lively style. conversational tone and manner.
+                In {words_length} words. Use emojis(max {max_emojis}). Include newline between every sentences. Use Korean. End self-introduction with a soft sales statement.
+
+                ##### OUTPUT
+                """
+            }
+        )
+
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-4o",
+                messages=messages
+            )
+            user_intro = response['choices'][0]['message']['content'].strip()
+            print(user_intro)
+        except openai.error.OpenAIError as e:
+            app.logger.error(f"OpenAI API error: {e}")
+            return jsonify({'error': f'OpenAI API error: {e}'}), 500
+
+        key_points = ["characteristics", "hobbies", "personal preferences"]
+        key_points = "\n".join(f"- {pt}" for pt in key_points)
+        summary_messages = [
+            {
+                "role": "user",
+                "content": f"""
+                ##### KEY POINTS
+                {key_points}
+
+                ##### INSTRUCTION
+                Highlight the key points of the INPUT (self-introduction) into 3 normalized sentences. \
+                    Include newline between every sentences. \
+                        Write in a 3rd party perspective. informative style, tone and manner. \
+                            Use gentle and formal tone of speech. Use Korean.
+
+                ##### SENTENCE NORMALIZATION EXAMPLE
+                - "노력합니다." to "노력함."
+                - "추구합니다." to "추구함."
+                - "있습니다." to "있음."
+
+                ##### INPUT
+                {user_intro}
+
+                ##### OUTPUT
+                {username}님은
+                """,
             }
         ]
 
-        for category, question_index, answer in responses:
-            question = question_map[category][question_index]
-            messages.append({"role": "user", "content": f"{question}: {answer}"})
-
-        messages.append({
-            "role": "system",
-            "content": """
-            제공된 정보를 바탕으로 상세하고 매력적이며 유쾌한 데이트 프로필 자기소개서를 작성하세요. 
-            자기소개서는 유창하고 자연스러우며, 단어의 반복을 피하세요. 
-            자기소개서는 초대할 수 있고 공감할 수 있는 형태로, 명확한 흐름과 자연스러운 언어로 작성되어야 합니다. 
-            더 나은 가독성을 위해 명확한 단락으로 나누세요.
-            """
-        })
-
-        response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=messages,
-            max_tokens=150,
-            temperature=1,
-            n=1
-        )
-
-        generated_introduction = response.choices[0].message['content'].strip()
-
-        # Remove repetitive expressions and extra spaces
-        formatted_introduction = re.sub(r'\b(\w+)\b(?=\s+\1\b)', r'\1', generated_introduction)
-        formatted_introduction = re.sub(r'(\s*\b\w+\b\s*)\1+', r'\1', formatted_introduction)  # Remove adjacent duplicates
-        formatted_introduction = re.sub(r'\s+', ' ', formatted_introduction).strip()
-
-        # Split into paragraphs for better readability
-        formatted_introduction = '\n\n'.join(re.split(r'(?<=\.) ', formatted_introduction))
-
-        summary_messages = [
-            {"role": "system", "content": "당신은 정교한 데이트 매칭 어시스턴트입니다. 사용자가 제공한 소개서에서 주요 정보를 추출하여 명확하고 간결한 언어로 강조하세요."},
-            {"role": "system", "content": "사용자의 주요 특성, 취미, 선호도를 식별하세요."},
-            {"role": "system", "content": "소개서를 세 가지 명확하고 간결한 단락으로 요약하여 주요 내용을 강조하세요."},
-            {"role": "user", "content": f"다음 텍스트를 세 가지 간결한 단락으로 요약하여 주요 측면을 강조하세요:\n\n{formatted_introduction}"}
-        ]
-
-        summary_response = openai.ChatCompletion.create(
-            model="gpt-4o",
-            messages=summary_messages,
-            max_tokens=75,
-            temperature=1,
-            n=1
-        )
-        summary = summary_response.choices[0].message['content'].strip()
+        try:
+            summary_response = openai.ChatCompletion.create(
+                model="gpt-4o",
+                messages=summary_messages
+            )
+            summary = summary_response['choices'][0]['message']['content'].strip()
+            print(summary)
+        except openai.error.OpenAIError as e:
+            app.logger.error(f"OpenAI API error: {e}")
+            return jsonify({'error': f'OpenAI API error: {e}'}), 500
 
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         insert_intro_query = """
@@ -280,20 +319,17 @@ def generate_introduction():
         VALUES (%s, %s, %s, %s, %s, %s)
         ON DUPLICATE KEY UPDATE Content = VALUES(Content), LastModifiedDate = VALUES(LastModifiedDate), Summary = VALUES(Summary)
         """
-        insert_intro_data = (user_id, '데이트 자기소개서', formatted_introduction, current_time, current_time, summary)
-        db_cursor.execute(insert_intro_query, insert_intro_data)
-
+        db_cursor.execute(insert_intro_query, (user_id, "Introduction", user_intro, current_time, current_time, summary))
         db_connection.commit()
 
-        return jsonify({'introduction': formatted_introduction, 'summary': summary}), 200
+        return jsonify({'message': 'Introduction generated successfully', 'introduction': user_intro, 'summary': summary}), 200
+
     except Exception as e:
-        db_connection.rollback()
-        app.logger.error(f"자기소개서 생성 중 오류 발생: {e}")
-        traceback.print_exc()  # 추가된 오류 추적
-        return jsonify({'error': f'자기소개서 생성 중 오류 발생: {e}'}), 500
-
-
-
+        app.logger.error(f"Error generating introduction: {e}")
+        return jsonify({'error': f'Error generating introduction: {e}'}), 500
+    finally:
+        db_cursor.close()
+        db_connection.close()
 
 @app.route('/get_introduction_summary', methods=['POST'])
 def get_introduction_summary():
@@ -304,6 +340,11 @@ def get_introduction_summary():
         return jsonify({'error': 'Missing userId'}), 400
 
     try:
+        db_connection = get_db_connection()
+        if not db_connection:
+            return jsonify({'error': 'DB 연결 실패'}), 500
+
+        db_cursor = db_connection.cursor()
         query = "SELECT Summary FROM SelfIntroductions WHERE User_id = %s"
         db_cursor.execute(query, (user_id,))
         result = db_cursor.fetchone()
@@ -317,76 +358,12 @@ def get_introduction_summary():
     except Exception as e:
         app.logger.error(f"요약 생성 중 오류 발생: {e}")
         return jsonify({'error': f'요약 생성 중 오류 발생: {e}'}), 500
-
-
-#자기소개서 매칭
-@app.route('/get_matching_results', methods=['POST'])
-def get_matching_results():
-    data = request.get_json()
-    user_id = data.get('userId')
-
-    if not user_id:
-        return jsonify({'error': 'Missing userId'}), 400
-
-    try:
-        # Fetch the user's summary
-        user_summary_query = "SELECT Summary FROM SelfIntroductions WHERE User_id = %s"
-        db_cursor.execute(user_summary_query, (user_id,))
-        user_summary_result = db_cursor.fetchone()
-
-        if not user_summary_result:
-            return jsonify({'error': 'User summary not found'}), 404
-
-        user_summary = user_summary_result[0]
-
-        # Fetch all other summaries
-        other_summaries_query = "SELECT User_id, Summary FROM SelfIntroductions WHERE User_id != %s"
-        db_cursor.execute(other_summaries_query, (user_id,))
-        other_summaries = db_cursor.fetchall()
-
-        results = []
-
-        # Prepare embeddings for all summaries
-        summaries = [user_summary] + [summary[1] for summary in other_summaries]
-        embeddings = model.encode(summaries)
-
-        user_embedding = embeddings[0]
-        other_embeddings = embeddings[1:]
-
-        cosine_similarities = util.pytorch_cos_sim(user_embedding, other_embeddings).numpy().flatten()
-
-        for idx, similarity in enumerate(cosine_similarities):
-            other_user_id = other_summaries[idx][0]
-            similarity_percentage = round(similarity * 100, 2)
-
-            # Fetch the other user's username
-            other_user_query = "SELECT Username FROM Users WHERE User_id = %s"
-            db_cursor.execute(other_user_query, (other_user_id,))
-            other_user_result = db_cursor.fetchone()
-
-            if other_user_result:
-                other_username = other_user_result[0]
-                results.append({'username': other_username, 'similarity': similarity_percentage})
-
-                # Save similarity to the database
-                similarity_normalized = float(similarity_percentage) / 100.0  # float64를 float로 변환
-                insert_similarity_query = """
-                INSERT INTO DatingProfileSimilarity (user_id_1, user_id_2, similarity)
-                VALUES (%s, %s, %s)
-                """
-                db_cursor.execute(insert_similarity_query, (user_id, other_user_id, similarity_normalized))
-                db_connection.commit()
-
-        results.sort(key=lambda x: x['similarity'], reverse=True)
-        return jsonify({'results': results}), 200
-    except Exception as e:
-        db_connection.rollback()
-        app.logger.error(f"Error fetching matching results: {e}")
-        app.logger.error(f"Exception details: {e}", exc_info=True)  # 예외 정보를 자세히 출력
-        return jsonify({'error': f'Error fetching matching results: {e}'}), 500
-    
+    finally:
+        db_cursor.close()
+        db_connection.close()
 
 # 자기소개서 디자인 생성 
+openai.api_key = "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"
 @app.route('/generate_design', methods=['POST'])
 def generate_design_endpoint():
     data = request.get_json()
@@ -576,6 +553,7 @@ def calculate_face_similarity():
         traceback.print_exc()
         return jsonify({"error": "An internal error occurred", "details": str(e), "results": []}), 500
 
+
 # 이미지 캡션 분석
 @app.route('/api/analyze-batch', methods=['POST'])
 def analyze_images_batch():
@@ -748,125 +726,256 @@ def face_detection():
         except PermissionError as e:
             logging.error(f"Error deleting temporary file: {e}")
 
+##################챗봇 부분#################  
+# LangChain 설정
+openai.api_key = "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"
+
+# 전역 변수로 유지
+llm = OpenAI(model="gpt-3.5-turbo-instruct", temperature=1.0, max_tokens=500)
+memory = ConversationBufferMemory()
+
+# 마지막 메시지 시간을 추적하는 딕셔너리
+last_message_time = {}
+
+# 주기적으로 메시지를 확인하고 5분 이상 지나면 추천 요청을 보내는 함수
+def check_inactivity():
+    while True:
+        current_time = datetime.now()
+        for matching_id, last_time in list(last_message_time.items()):
+            if (current_time - last_time).total_seconds() > 120:
+                data = {'matchingID': matching_id}
+                with app.app_context():
+                    response = app.test_client().post('/chat/suggestions/realtime', json=data)
+                    app.logger.info(f'Posted suggestion request for matchingID {matching_id}, response status: {response.status_code}')
+                    if response.status_code == 200:
+                        suggestions = response.json['suggestions']
+                        # 추천 내용을 처리하는 로직 추가
+                        print(f"Recommendations for matching ID {matching_id}: {suggestions}")
+                    else:
+                        app.logger.error(f'Failed to fetch suggestions for matchingID {matching_id}, response: {response.json}')
+                last_message_time.pop(matching_id, None)
+        time.sleep(60)  # 1분마다 확인
+
+# 스레드 시작(가비지 컬렉션 삭제 방지)
+def start_thread():
+    thread = threading.Thread(target=check_inactivity, daemon=True)
+    thread.start()
+
+# Flask 애플리케이션 컨텍스트 내에서 스레드 시작
+with app.app_context():
+    start_thread()
 
 
-#챗봇 부분  
-#중복되는 단어 제거            
-def clean_response(text):
-    """중복 단어 제거 및 불필요한 문자 제거"""
-    # 단어 중복 제거
-    words = text.split()
-    cleaned_words = []
-    for i in range(len(words)):
-        if i == 0 or words[i] != words[i-1]:
-            cleaned_words.append(words[i])
-    cleaned_text = ' '.join(cleaned_words)
+#매칭된 사용자 정보 가져오는 로직
+def get_matching_user_data(matching_id, user_id):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
     
-    # 문장 끝의 중복 제거
-    cleaned_text = cleaned_text.replace(' 요 요 요 요', ' 요')
-    cleaned_text = cleaned_text.replace(' 요 요', ' 요')
-    cleaned_text = cleaned_text.replace('어요 요', '어요')
-    cleaned_text = cleaned_text.replace('요! 요!', '요!')
-
-    # 불필요한 문장 부호 제거
-    cleaned_text = cleaned_text.lstrip('- "').rstrip('"')
+    try:
+        cursor.execute("SELECT * FROM Matching WHERE MatchingID = %s", (matching_id,))
+        matching_info = cursor.fetchone()
+        
+        if not matching_info:
+            return None
+        
+        user_id_str = str(user_id)
+        matched_user_id = None
+        if matching_info['User1ID'] == user_id_str:
+            matched_user_id = matching_info['User2ID']
+        elif matching_info['User2ID'] == user_id_str:
+            matched_user_id = matching_info['User1ID']
+        
+        if not matched_user_id:
+            return None
+        
+        cursor.execute("SELECT * FROM Users WHERE User_id = %s", (matched_user_id,))
+        matched_user_profile = cursor.fetchone()
+        
+        return matched_user_profile
     
-    return cleaned_text
+    except Exception as err:
+        return None
+    finally:
+        cursor.close()
+        connection.close()
 
-def generate_conversation_starters(user_profile):
-    interests = user_profile.get('Interests', '관심사')
-    attractions = user_profile.get('Attractions', '매력')
 
+def gpt_prompt(matched_user_profile):
+    interests = matched_user_profile.get('Interests', '관심사')
+    attractions = matched_user_profile.get('Attractions', '매력')
+
+    messages = [
+        {
+            "role": "system",
+            "content": "당신은 친절하고 예의바른 인공지능 챗봇입니다. 상대방과 즐겁고 의미 있는 대화를 나눌 수 있도록 도와주세요."
+        },
+        {
+            "role": "user",
+            "content": f"""##### USER INFO
+            {matched_user_profile.get('Username', 'User')}님의 프로필 정보입니다.
+            관심사: {interests}
+            매력 포인트: {attractions}
+
+            ##### INSTRUCTION
+            위 USER INFO를 기반으로 상대방과의 자연스럽고 흥미로운 대화를 위한 질문을 만들어주세요.
+            - 질문은 50자를 넘지 않도록 해주세요.
+            - 질문은 한 문장으로만 나타내주세요.
+            - 각 질문은 숫자 없이 만들어 주세요.
+            - 데이터베이스 기반으로 다양한 분야의 질문을 만들어주세요.
+            - 일상적인 질문, 예를 들어 '밥은 뭐 드셨나요?', '뭐하고 계신가요?' 같은 질문도 포함해주세요.
+            - 데이터베이스 기반으로 만드는 질문이 아니라면 일상적인 생활 속에서 일어나는 당연한 질문을 만들어주세요.
+            - 상대방이 예/아니오로 답할 수 있는 질문은 피해주시고 서술형 질문을 만들어주세요.
+            - 상대방의 관심사와 취미를 반영한 질문을 포함해주세요.
+            - 가끔씩 질문에 어울리는 이모티콘이 있다면 이모티콘도 함께 사용해주세요.
+            - 질문의 개수는 5개로 제한해주세요.
+
+            ##### OUTPUT
+            """
+        }
+    ]
+
+    # OpenAI API 호출
+    gpt_response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=messages,
+        max_tokens=500,
+        n=1,
+        stop=None,
+        temperature=1.0
+    )
+
+    responses = gpt_response['choices'][0]['message']['content'].strip().split('\n')
+    cleaned_responses = [response.strip().lstrip('-').strip() for response in responses if response.strip()]
+    return cleaned_responses
+
+#대화 분석 모듈
+def analyze_recent_messages(matching_id):
+    connection = get_db_connection()
+    cursor = connection.cursor(dictionary=True)
+    try:
+        query = 'SELECT * FROM Messages WHERE MatchingID = %s ORDER BY SentDate DESC LIMIT 20'
+        cursor.execute(query, (matching_id,))
+        messages = cursor.fetchall()
+
+        if not messages:
+            return False, []
+
+        last_message_time = messages[0]['SentDate']
+        current_time = datetime.now()
+        time_diff = (current_time - last_message_time).total_seconds()
+
+        return time_diff > 120, messages
+    finally:
+        cursor.close()
+        connection.close()
+
+# #분석한 후 대화 추천 모듈
+# def generate_recommendations(messages):
+#     context = " ".join([msg['MessageContent'] for msg in messages])
+#     conversation.add_user_input(context)
+#     suggestions = conversation.run()
+#     return suggestions
+
+def serialize_user_profile(user_profile):
+    serialized_profile = {}
+    for key, value in user_profile.items():
+        if isinstance(value, (datetime, date)):
+            serialized_profile[key] = value.isoformat()
+        else:
+            serialized_profile[key] = value
+    return serialized_profile
+
+def get_conversation_suggestions(context):
+    # Create an OpenAI instance with your API key
+    openai_api_key = "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"
+    llm = OpenAI(api_key=openai_api_key)
+
+    # Create a conversation chain
+    conversation = ConversationChain(llm=llm)
+
+    words_length = 25
+
+    # Define the prompt
     prompt = f"""
-    You are Want, a helpful and friendly chatbot. You assist users in starting and maintaining conversations with their matches.
-    The user you're assisting likes {interests} and finds {attractions} attractive.
-    Provide conversation starters in Korean that are casual and engaging, using polite but friendly language.
-    Ensure each sentence follows the subject-verb-object structure and avoid repeating the same words.
-    Do not include greetings like "Hello" or "Hi".
-    Avoid situations where investigations come first and nouns come out.
-    Make sure to create sentences without repeating words like "sometimes, sometimes".
-    Please don't repeat the same investigation at the end of the sentence.
-    Remember, these users have never met before.
+        ##### CONVERSATION HISTORY
+        {context}
 
-    Examples of desired sentences:
-    - "어떤 운동을 즐기세요? 저는 요가해본 적 있어요!"
-    - "어디서 주로 옷 사세요? 스타일이 제 마음에 쏙 들어요!"
-    - "저는 운동하면서 땀 날때 기분 좋더라고요!"
-    - "패션에 관심 많으세요? 저는 다양한 스타일 도전해보는거 좋아해요."
-    - "저는 음악을 들으면 더 힘이 나더라구요."
-    - "옷 잘 입는 비결있으세요?"
-    - "운동할 때 어떤 음악 주로 들으세요? 전 팝송 들으면서 해요."
-    - "운동을 어디서 주로 하시나요?"
+        ##### INSTRUCTION
+        Please write your questions in {words_length} characters or less \
+              Based on the CONVERSATION HISTORY, Please limit the number of questions to five \
+              Each suggestion should be engaging and related to the previous messages. \
+              Do not include labels like 'HUMAN' or 'AI'. \
+              Do not include empty suggestions. \
+              Format each suggestion as a numbered list item. Use emojis where appropriate. \
+              Write in a friendly and lively style. Use Korean. \
+              Please express your question in one sentence only. \
 
-    Generate responses in a similar manner.
-    """
+              Return the suggestions as a JSON array.
+
+        ##### OUTPUT
+        """
+    response = conversation.run(prompt)
+        # Split by new lines and filter out empty strings and unwanted labels
+    suggestions = [s.strip() for s in response.split('\n') if s.strip() and not s.startswith('Human:') and not s.startswith('AI:')]
+    return suggestions[:5]
+
+
+
+
+#대화 내용 추천 엔드포인트
+@app.route('/chat/suggestions/realtime', methods=['POST'])
+def get_realtime_suggestions():
+    data = request.json
+    matching_id = data.get('matchingID')
+
+    if not matching_id:
+        return jsonify({"error": "matchingID is required"}), 400
 
     try:
-        gpt_response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are Want, a helpful and friendly dating chatbot."},
-                {"role": "user", "content": "What do you enjoy doing in your free time?"},
-                {"role": "assistant", "content": "I love hiking and exploring nature trails. How about you?"},
-                {"role": "user", "content": "What's your favorite type of music?"},
-                {"role": "assistant", "content": "I really enjoy listening to popsong. It helps me relax."},
-                {"role": "user", "content": "Do you like to cook?"},
-                {"role": "assistant", "content": "Yes, I love cooking Italian dishes. Do you have a favorite cuisine?"},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=200,
-            n=1,
-            stop=None,
-            temperature=0.8
-        )
+        conversation_stuck, messages = analyze_recent_messages(matching_id)
 
-        # GPT-4 응답을 파싱하고 정리
-        responses = gpt_response.choices[0].message['content'].strip().split('\n')
-        cleaned_responses = [clean_response(response.strip()) for response in responses if response.strip()]
-        # 번역을 통한 자연스러운 표현 생성
+        if not messages:
+            return jsonify({"error": "No messages found for this matching ID"}), 404
 
-        logger.info(f"Original GPT-4 responses: {cleaned_responses}")#번역전데이터
+        if conversation_stuck:
+            context = " ".join([msg['MessageContent'] for msg in messages])
+            app.logger.info(f'Context for GPT: {context}')
+
+            suggestions = get_conversation_suggestions(context)
+            app.logger.info(f'GPT Response: {suggestions}')
+
+            return jsonify({"suggestions": suggestions})
+        else:
+            return jsonify({"message": "Conversation flow is smooth"})
+
+    except Exception as error:
+        app.logger.error(f'Error processing suggestions: {error}', exc_info=True)
+        return jsonify({"error": "Failed to process suggestions due to server error", "details": str(error)}), 500
 
 
-        # translated_responses = []
-        # for response in cleaned_responses:
-        #     if response:
-        #         translated_text = translator.translate(response, src='en', dest='ko').text
-        #         translated_responses.append(clean_response(translated_text))
 
-        return cleaned_responses  # 질문 개수 제한 없음
-
-    except Exception as e:
-        logger.error(f"Error generating conversation starters: {e}")
-        return []
-
-
+#챗봇 추천 엔드포인트
 @app.route('/chatbot/suggestions', methods=['POST'])
 def get_suggestions():
     user_data = request.json
-    user_id = user_data['userId']
-    logger.info(f"Received request for user ID: {user_id}")
+    user_id = user_data.get('userId')
+    matching_id = user_data.get('matchingId')
+    if not user_id or not matching_id:
+        return jsonify({"error": "userId and matchingId are required"}), 400
+    logger.info(f"Received request for user ID: {user_id} and matching ID: {matching_id}")
 
-    cursor = db_connection.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM Users WHERE User_id = %s", (user_id,))
-    user_profile = cursor.fetchone()
+    matched_user_profile = get_matching_user_data(matching_id, user_id)
 
-    if not user_profile:
-        logger.warning(f"User with ID {user_id} not found")
-        return jsonify({"error": "User not found"}), 404
+    if not matched_user_profile:
+        logger.warning(f"No matching user found for matching ID {matching_id} and user ID {user_id}")
+        return jsonify({"error": "No matching user found"}), 404
+
+    matched_user_profile = serialize_user_profile(matched_user_profile)
 
     try:
-        cursor = db_connection.cursor(dictionary=True)
-        cursor.execute("SELECT * FROM Users WHERE User_id = %s", (user_id,))
-        user_profile = cursor.fetchone()
-
-        if not user_profile:
-            logger.warning(f"User with ID {user_id} not found")
-            return jsonify({"error": "User not found"}), 404
-
-        gpt_suggestions_texts = generate_conversation_starters(user_profile)
-        logger.info(f"Generated suggestions: {gpt_suggestions_texts}")
-
+        logger.info(f"Generating suggestions for matched user profile: {matched_user_profile}")
+        suggestions = gpt_prompt(matched_user_profile)
+        logger.info(f"Generated suggestions: {suggestions}")
     except openai.error.OpenAIError as e:
         logger.error(f"Error from OpenAI: {str(e)}")
         return jsonify({"error": str(e)}), 500
@@ -874,24 +983,25 @@ def get_suggestions():
         logger.error(f"Database or other error: {e}")
         return jsonify({"error": str(e)}), 500
 
-    return jsonify(gpt_suggestions_texts)
-
+    return jsonify(suggestions)
 
 
 @app.route('/chat/messages/<matchingID>', methods=['GET'])
 def get_messages(matchingID):
     try:
         query = 'SELECT * FROM Messages WHERE MatchingID = %s ORDER BY SentDate ASC'
-        db_cursor.execute(query, (matchingID,))
-        messages = db_cursor.fetchall()
+        cursor = db_connection.cursor(dictionary=True)
+        cursor.execute(query, (matchingID,))
+        messages = cursor.fetchall()
         if messages:
             return jsonify({"messages": messages})
         else:
             return jsonify({"message": "No messages found for this matching ID."}), 404
     except Exception as error:
-        print('Failed to retrieve messages:', error)
+        logger.error(f'Failed to retrieve messages: {error}')
         return jsonify({"message": "Failed to retrieve messages due to server error.", "error": str(error)}), 500
 
+# 새로운 메시지가 도착할 때마다 마지막 메시지 시간을 업데이트하는 엔드포인트
 @app.route('/chat/messages', methods=['POST'])
 def post_message():
     data = request.json
@@ -908,9 +1018,10 @@ def post_message():
         VALUES (%s, %s, %s, %s, NOW(), NULL)
     '''
     try:
-        db_cursor.execute(insert_query, (matchingID, senderID, receiverID, messageContent))
+        cursor = db_connection.cursor()
+        cursor.execute(insert_query, (matchingID, senderID, receiverID, messageContent))
         db_connection.commit()
-        new_message_id = db_cursor.lastrowid
+        new_message_id = cursor.lastrowid
         new_message = {
             "MessageID": new_message_id,
             "MatchingID": matchingID,
@@ -919,16 +1030,15 @@ def post_message():
             "MessageContent": messageContent,
             "SentDate": datetime.now().isoformat()
         }
+        last_message_time[matchingID] = datetime.now()  # 마지막 메시지 시간 업데이트
         return jsonify(new_message)
     except Exception as error:
-        print('Error inserting message into database:', error)
+        logger.error(f'Error inserting message into database: {error}')
         db_connection.rollback()
         return jsonify({"error": "Error inserting message into database", "details": str(error)}), 500
 
-
-
-
-
 app.register_blueprint(similarity_blueprint)
+
+
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=6000, debug=True)

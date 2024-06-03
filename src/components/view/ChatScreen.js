@@ -1,29 +1,62 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, TouchableWithoutFeedback, Image  } from 'react-native';
-import { nodeUrl } from '../../deviceSet';
-import { flaskUrl } from '../../deviceSet';
+import React, { useState, useEffect, useRef } from 'react';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, Alert, TouchableWithoutFeedback, Image } from 'react-native';
+import { nodeUrl, flaskUrl } from '../../deviceSet';
 import { image } from '../../../assets/image';
 
-
-const ChatScreen = ({ route }) => {
+const ChatScreen = ({ route, navigation }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
   const { matchingID, userId, matchedUserId } = route.params;
-  const [ws, setWs] = useState(null);
+  const ws = useRef(null);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [suggestionsCached, setSuggestionsCached] = useState(false);
-  const baseURL = 'https://owonet.store';
 
   useEffect(() => {
-    const websocket = new WebSocket('wss://owonet.store/chat/messages/ws');
-    
-    websocket.onopen = () => {
-      console.log('WebSocket Connected');
-      websocket.send(JSON.stringify({ type: 'join', matchingID }));
+    connectWebSocket();
+
+    return () => {
+      if (ws.current) {
+        ws.current.close();
+      }
     };
-  
-    websocket.onmessage = (e) => {
+  }, []);
+
+  useEffect(() => {
+    const unsubscribeFocus = navigation.addListener('focus', () => {
+      connectWebSocket();
+    });
+
+    const unsubscribeBlur = navigation.addListener('blur', () => {
+      if (ws.current) {
+        ws.current.close();
+      }
+    });
+
+    return () => {
+      unsubscribeFocus();
+      unsubscribeBlur();
+    };
+  }, [navigation]);
+
+  useEffect(() => {
+    fetchMessages();
+  }, [matchingID]);
+
+  const connectWebSocket = () => {
+    if (ws.current && (ws.current.readyState === WebSocket.OPEN || ws.current.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    ws.current = new WebSocket('wss://owonet.store/chat/messages/ws');
+
+    ws.current.onopen = () => {
+      console.log('WebSocket Connected');
+      ws.current.send(JSON.stringify({ type: 'join', matchingID }));
+    };
+
+    ws.current.onmessage = (e) => {
       const message = JSON.parse(e.data);
       if (message.MatchingID === matchingID) {
         setMessages(prevMessages => {
@@ -34,24 +67,30 @@ const ChatScreen = ({ route }) => {
         });
       }
     };
-  
-    websocket.onerror = (e) => {
-      console.error('WebSocket Error: ', e.message);
-    };
-  
-    websocket.onclose = (e) => {
-      console.log(`WebSocket Disconnected: Reason: ${e.reason}, Code: ${e.code}, Clean: ${e.wasClean}`);
-    };
-  
-    return () => {
-      websocket.close();
-    };
-  }, [matchingID]);
-  
 
-  useEffect(() => {
-    fetchMessages();
-  }, []);
+    ws.current.onerror = (e) => {
+      console.error('WebSocket Error: ', e.message);
+      console.error('WebSocket Error Event: ', e);
+    };
+
+    ws.current.onclose = (e) => {
+      console.log(`WebSocket Disconnected: Reason: ${e.reason}, Code: ${e.code}, Clean: ${e.wasClean}`);
+      console.log('WebSocket Close Event: ', e);
+
+      if (!e.wasClean && ws.current) {
+        console.log('Attempting to reconnect...');
+        setTimeout(connectWebSocket, 5000); // 5초 후에 재연결 시도
+      }
+    };
+
+    const pingInterval = setInterval(() => {
+      if (ws.current && ws.current.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000);
+
+    return () => clearInterval(pingInterval);
+  };
 
   const fetchMessages = async () => {
     try {
@@ -62,10 +101,10 @@ const ChatScreen = ({ route }) => {
           'Content-Type': 'application/json',
         }
       });
-  
+
       if (!response.ok) {
         if (response.status === 404) {
-          setMessages([]); 
+          setMessages([]);
         } else {
           throw new Error('Failed to fetch messages');
         }
@@ -78,13 +117,12 @@ const ChatScreen = ({ route }) => {
       Alert.alert('Error', 'Failed to fetch messages');
     }
   };
-  
 
   const sendMessage = async () => {
     if (inputMessage.trim() === '') return;
-  
+
     try {
-      const response = await fetch(`${baseURL}/chat/messages`, {
+      const response = await fetch(`${nodeUrl}/chat/messages`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -96,28 +134,26 @@ const ChatScreen = ({ route }) => {
           messageContent: inputMessage,
         }),
       });
-  
+
       if (!response.ok) {
         throw new Error('Failed to send message');
       }
-  
       const newMessage = await response.json();
-  
+
       setMessages(previousMessages => {
         if (!previousMessages.some(msg => msg.MessageID === newMessage.MessageID)) {
           return [...previousMessages, newMessage];
         }
         return previousMessages;
       });
-  
+
       setInputMessage('');
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Error', 'Failed to send message');
     }
   };
-  
-  //챗봇 부분
+
   const fetchSuggestions = async () => {
     if (suggestionsCached) {
       setShowSuggestions(true);
@@ -125,13 +161,13 @@ const ChatScreen = ({ route }) => {
     }
 
     try {
-      console.log('Fetching suggestions for userId:', userId);
+      console.log('Fetching suggestions for userId:', userId, 'and matchingId:', matchingID);
       const response = await fetch(`${flaskUrl}/chatbot/suggestions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, matchingId: matchingID }),
       });
 
       if (!response.ok) {
@@ -140,14 +176,57 @@ const ChatScreen = ({ route }) => {
 
       const data = await response.json();
       console.log('Received suggestions:', data);
-      setSuggestions(data); 
+      setSuggestions(data);
       setSuggestionsCached(true);
       setShowSuggestions(true);
     } catch (error) {
       console.error('Error fetching suggestions:', error);
+      Alert.alert('Error', 'Failed to fetch suggestions. Please try again.');
     }
   };
-  
+
+  const fetchRealtimeSuggestions = async () => {
+    try {
+        const response = await fetch(`${flaskUrl}/chat/suggestions/realtime`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ matchingID }),
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch real-time suggestions');
+        }
+
+        const data = await response.json();
+        console.log('API response:', data); // 응답 데이터 확인
+
+        if (data.suggestions && data.suggestions.length > 0) {
+            setSuggestions(data.suggestions);
+            setShowSuggestions(true);
+        } else if (data.message) {
+            console.log(data.message);
+        } else {
+            console.error('No suggestions found:', data);
+        }
+    } catch (error) {
+        console.error('Error fetching real-time suggestions:', error);
+        Alert.alert('Error', 'Failed to fetch suggestions. Please try again.');
+    }
+};
+
+useEffect(() => {
+    const interval = setInterval(() => {
+        fetchRealtimeSuggestions();
+    }, 60000); // 2 minutes
+
+    return () => clearInterval(interval);
+}, []);
+
+
+
+
   const renderSuggestion = ({ item }) => (
     <TouchableOpacity style={styles.suggestionButton} onPress={() => setInputMessage(item)}>
       <Text style={styles.suggestionText}>{item}</Text>
@@ -224,9 +303,9 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderTopWidth: 1,
     borderTopColor: '#CCCCCC',
-    backgroundColor: '#FFFFFF', // 하얀색 배경
+    backgroundColor: '#FFFFFF',
     position: 'absolute',
-    bottom: 80, 
+    bottom: 80,
     left: 0,
     right: 0,
   },
@@ -238,7 +317,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 15,
     marginRight: 10,
-    backgroundColor: 'transparent', // 투명 배경
+    backgroundColor: 'transparent',
   },
   sendButton: {
     backgroundColor: '#F8BBD0',
@@ -280,18 +359,18 @@ const styles = StyleSheet.create({
   },
   overlaySuggestions: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)', // 반투명 배경
+    backgroundColor: 'rgba(255, 255, 255, 0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 10,
   },
   suggestionsContainer: {
     padding: 10,
-    backgroundColor: 'rgba(255, 192, 203, 0.7)', // 반투명 핑크 톤
+    backgroundColor: 'rgba(255, 192, 203, 0.7)',
     borderRadius: 10,
-    width: '80%', // 너비 조정
-    maxHeight: '50%', // 높이 절반으로 제한
-    alignItems: 'center', // 중앙 정렬
+    width: '80%',
+    maxHeight: '50%',
+    alignItems: 'center',
   },
   suggestionsTitle: {
     fontSize: 16,
@@ -300,12 +379,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   suggestionButton: {
-    backgroundColor: 'white', 
+    backgroundColor: 'white',
     borderRadius: 10,
     paddingHorizontal: 15,
     paddingVertical: 10,
     marginBottom: 10,
-    width: '100%', // 너비 조정
+    width: '100%',
   },
   suggestionText: {
     fontSize: 14,
@@ -319,7 +398,7 @@ const styles = StyleSheet.create({
     height: 24,
   },
   helpButton: {
-    backgroundColor: '#F8BBD0', // 핑크 톤
+    backgroundColor: '#F8BBD0',
     borderRadius: 20,
     paddingHorizontal: 20,
     paddingVertical: 10,

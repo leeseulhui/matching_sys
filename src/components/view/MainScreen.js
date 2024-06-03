@@ -106,7 +106,11 @@ const MainScreen = () => {
             const partnerId = chatItem.User1ID === userId ? chatItem.User2ID : chatItem.User1ID;
             return (
               <View key={chatItem.MatchingID} style={styles.profileCard}>
-                <Image source={{ uri: chatItem.User_profile_image }} style={styles.profileImage} resizeMode="cover" />
+                <Image
+                  source={{ uri: `${chatItem.User_profile_image}?t=${new Date().getTime()}` }}
+                  style={styles.profileImage}
+                  resizeMode="cover"
+                />
                 <View style={styles.textContainer}>
                   <Text style={styles.profileName}>{chatItem.Username}</Text>
                 </View>
